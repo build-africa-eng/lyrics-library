@@ -1,5 +1,6 @@
 name = "lyrics-worker"
 type = "javascript"
+main = "src/index.js"
 compatibility_date = "2025-06-10"
 
 [[d1_databases]]

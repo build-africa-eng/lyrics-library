@@ -5,4 +5,4 @@ compatibility_date = "2025-06-10"
 [[d1_databases]]
 binding = "DB"
 database_name = "lyrics_db"
-id = "1da90d4c-2ada-4c8c-88e0-fb329b600ecc"
+database_id = "1da90d4c-2ada-4c8c-88e0-fb329b600ecc"

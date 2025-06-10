@@ -1,7 +1,7 @@
 // /worker/src/index.js
-import { getLyrics } from "./routes/getLyrics";
-import { addLyrics } from "./routes/addLyrics";
-import { scrapeLyrics } from "./routes/scrapeLyrics";
+import { getLyrics } from "./routes/getlyrics";
+import { addLyrics } from "./routes/addlyrics";
+import { scrapeLyrics } from "./routes/scrapelyrics";
 import { getDB } from "./db";
 
 export default {

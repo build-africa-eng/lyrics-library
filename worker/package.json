@@ -1,0 +1,14 @@
+{
+  "name": "lyrics-worker",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "start": "wrangler dev",
+    "deploy": "wrangler publish",
+    "migrate": "wrangler d1 execute lyrics_db --file=./schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.19.1"
+  }
+}

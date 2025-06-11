@@ -1,33 +1,17 @@
-@tailwind base;
-@tailwind utilities;
-
-/* Base styles */
-body {
-  @apply bg-white text-zinc-900 font-sans;
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  body {
-    @apply bg-zinc-900 text-zinc-100;
-  }
-}
-
-/* Scrollbar styles (WebKit) */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-zinc-100;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-zinc-400 rounded-full;
-}
-
-/* Firefox scrollbar */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #71717a #f4f4f5; /* zinc-400 and zinc-100 hex values */
-}
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        primary: '#1e40af',
+        secondary: '#60a5fa',
+      },
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+      },
+    },
+  },
+  plugins: [],
+  darkMode: 'media', // Enables dark mode based on prefers-color-scheme
+};

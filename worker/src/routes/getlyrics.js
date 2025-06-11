@@ -1,32 +1,31 @@
 import { normalizeQuery } from "../utils/normalize.js";
 
-export async function addLyrics(req, db) {
-  try {
-    const { query, title, artist, lyrics, source_url } = await req.json();
+export async function getLyrics(req, db) {
+  const { searchParams } = new URL(req.url);
+  const query = searchParams.get("query");
 
-    if (!query || !lyrics || !title || !artist) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-
-    const normalizedQuery = normalizeQuery(query);
-    const timestamp = Math.floor(Date.now() / 1000);
-
-    await db.prepare(`
-      INSERT OR REPLACE INTO lyrics (query, title, artist, lyrics, source_url, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).bind(normalizedQuery, title, artist, lyrics, source_url || null, timestamp).run();
-
-    return new Response(JSON.stringify({ success: true, message: "Lyrics added" }), {
-      status: 201,
-      headers: { "Content-Type": "application/json" }
-    });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: "Invalid JSON or server error", detail: err.message }), {
-      status: 500,
+  if (!query) {
+    return new Response(JSON.stringify({ error: "Missing ?query parameter" }), {
+      status: 400,
       headers: { "Content-Type": "application/json" }
     });
   }
+
+  const normalizedQuery = normalizeQuery(query);
+
+  const result = await db.prepare(`SELECT * FROM lyrics WHERE query = ?`)
+    .bind(normalizedQuery)
+    .first();
+
+  if (!result) {
+    return new Response(JSON.stringify({ error: "Lyrics not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  return new Response(JSON.stringify({ cached: true, ...result }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
 }

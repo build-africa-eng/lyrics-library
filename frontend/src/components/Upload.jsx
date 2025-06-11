@@ -39,7 +39,7 @@ export default function Upload() {
     <div
       className={cn(
         'w-full max-w-md p-4 mx-auto rounded-2xl shadow-md',
-        'background-color: white; dark:background-color: #18181b;'
+        'bg-white dark:bg-zinc-900' // Corrected: Using Tailwind classes
       )}
     >
       <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
@@ -47,6 +47,7 @@ export default function Upload() {
         Upload Lyrics (.txt)
       </h2>
       <label className="block w-full">
+        {/* This now works correctly with the updated Button component */}
         <Button as="span" className="w-full text-left">
           Choose File
           <input

@@ -1,29 +1,47 @@
 import express from 'express';
 import morgan from 'morgan';
-import cors from 'cors'; // ✅ Import cors middleware
+import cors from 'cors';
 import scrapeRouter from './routes/scrape.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ Enable CORS for all routes (default allows any origin)
-app.use(cors());
+// ✅ Only allow your Cloudflare Worker to access this backend
+const allowedOrigin = 'https://lyrics-worker.afrcanfuture.workers.dev';
 
-// Optional: if you want to restrict to specific origins:
-// app.use(cors({ origin: 'https://lyrics-worker.afrcanfuture.workers.dev' }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow server-to-server (no Origin) or your Worker domain
+    if (!origin || origin === allowedOrigin) {
+      return callback(null, true);
+    }
+    callback(new Error('CORS policy violation'));
+  },
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
 
+// ✅ Handle CORS errors gracefully
+app.use((err, req, res, next) => {
+  if (err.message === 'CORS policy violation') {
+    return res.status(403).json({ error: 'Access denied: invalid origin' });
+  }
+  next(err);
+});
+
+// ✅ Logger and JSON parser
 app.use(morgan('dev'));
-app.use(express.json()); // ✅ Needed if you're parsing JSON POST bodies
+app.use(express.json());
 
-// Modular route for /scrape
+// ✅ Scraper endpoint
 app.use('/scrape', scrapeRouter);
 
-// Health check
+// ✅ Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', uptime: process.uptime() });
 });
 
-// Root welcome
+// ✅ Root welcome
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to the Lyrics Scraper API!',
@@ -37,7 +55,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// Global error handler
+// ✅ Final fallback error handler
 app.use((err, req, res, next) => {
   console.error(`Unhandled error in ${req.method} ${req.originalUrl}:`, err.stack || err.message);
   res.status(500).json({ error: 'Internal server error' });

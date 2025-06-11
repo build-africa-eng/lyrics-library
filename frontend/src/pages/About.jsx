@@ -1,10 +1,10 @@
-import Navbar from '@/components/Navbar';
+import Header from '@/components/Header';
 import { cn } from '@/lib/cn';
 
 export default function About() {
   return (
     <div>
-      <Navbar />
+      <Header />
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         <h1 className="text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
           About Lyrics Library

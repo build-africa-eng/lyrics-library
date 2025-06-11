@@ -1,12 +1,3 @@
-// Utility to normalize a lyrics search query
-export function normalizeQuery(str) {
-  return str
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 // Centralized API helper for lyrics library frontend
 const BASE_URL = 'https://lyrics-worker.afrcanfuture.workers.dev';
 

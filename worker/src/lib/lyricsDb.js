@@ -1,3 +1,4 @@
+// src/lib/lyricsDb.js
 export async function getLyricsByTitleAndArtist(db, title, artist) {
   const result = await db.prepare(
     `SELECT title, artist, lyrics FROM lyrics WHERE title = ? AND artist = ? LIMIT 1`

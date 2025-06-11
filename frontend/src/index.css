@@ -1,58 +1,50 @@
 @import "tailwindcss";
 
-/*
- * The @reference directive is for advanced cases like CSS Modules
- * where you need to share Tailwind's context. Since you are not
- * using CSS Modules, this line is no longer needed.
- */
-
 @theme {
-  /*
-   * In v4, you define theme colors and other design tokens directly in CSS
-   * using CSS variables with a specific namespace, like --color-*.
-   * Tailwind automatically creates utilities like `bg-zinc-900` from them.
-   */
+  /* Define your project's color palette as CSS variables. */
   --color-zinc-100: #f4f4f5;
   --color-zinc-400: #a1a1aa;
   --color-zinc-900: #18181b;
 
   /*
-   * You can also define other theme values. For example, for the `font-sans`
-   * utility, you would define the --font-sans variable.
+   * **[CRITICAL FIX]** You must define a default font family
+   * for text to render correctly. This uses the standard system font stack.
    */
-  /* --font-family-sans: "your-font-name", sans-serif; */
+  --font-family-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
-body {
-  background-color: white;
-  color: theme(colors.zinc.900); /* Use theme() to access your tokens */
-  font-family: theme(fontFamily.sans);
+/*
+ * [REMOVED] The conflicting `body` styles have been removed.
+ * Your HTML's `<body class="bg-neutral-950 text-white">` now correctly
+ * controls the background and text color without any conflict.
+ *
+ * We also removed the `@media (prefers-color-scheme: dark)` block
+ * because you are setting the dark theme directly in the HTML.
+ */
+
+/* Apply a base font to the entire document */
+html {
+  font-family: var(--font-family-sans);
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  body {
-    background-color: theme(colors.zinc.900); /* bg-zinc-900 */
-    color: theme(colors.zinc.100);
-  }
-}
 
-/* Scrollbar styles (WebKit) */
+/* Scrollbar styles (updated to use CSS variables) */
+/* WebKit (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background-color: theme(colors.zinc.100);
+  background-color: var(--color-zinc-900); /* Dark track */
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: theme(colors.zinc.400);
+  background-color: var(--color-zinc-400); /* Lighter thumb */
   border-radius: 9999px;
 }
 
-/* Firefox scrollbar */
+/* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: theme(colors.zinc.400) theme(colors.zinc.100);
+  scrollbar-color: var(--color-zinc-400) var(--color-zinc-900);
 }

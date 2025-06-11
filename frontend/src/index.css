@@ -26,8 +26,8 @@ body {
   @apply bg-zinc-400 rounded-full;
 }
 
-/* Firefox scrollbar (basic support) */
+/* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: theme('colors.zinc.400') theme('colors.zinc.100');
+  scrollbar-color: #71717a #f4f4f5; /* zinc-400 and zinc-100 hex values */
 }

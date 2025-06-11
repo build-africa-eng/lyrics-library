@@ -1,48 +1,53 @@
+// /render-scrapper/routes/scrape.js
 import express from 'express';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 import { scrapeGenius } from '../scrapers/genius.js';
 import { scrapeAZLyrics } from '../scrapers/azlyrics.js';
 import { scrapeLyricsCom } from '../scrapers/lyricscom.js';
-import axios from 'axios';
-import * as cheerio from 'cheerio';
 
 const router = express.Router();
 
+// POST /scrape — used by Cloudflare Worker
+router.post('/', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'Missing required field: url' });
+
+  try {
+    if (url.includes('genius.com')) return res.json(await scrapeGenius(url));
+    if (url.includes('azlyrics.com')) return res.json(await scrapeAZLyrics(url));
+    if (url.includes('lyrics.com')) return res.json(await scrapeLyricsCom(url));
+    return res.status(400).json({ error: 'Unsupported lyrics source URL' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message || 'Failed to scrape from provided URL' });
+  }
+});
+
+// GET /scrape — for manual use with query or url+source
 router.get('/', async (req, res) => {
   const { query, url, source } = req.query;
 
-  // Direct URL Mode
   if (url && source) {
     try {
-      if (source === 'genius') {
-        const result = await scrapeGenius(url);
-        return res.json(result);
-      }
-      if (source === 'azlyrics') {
-        const result = await scrapeAZLyrics(url);
-        return res.json(result);
-      }
-      if (source === 'lyricscom' || source === 'lyrics.com') {
-        const result = await scrapeLyricsCom(url);
-        return res.json(result);
-      }
+      if (source === 'genius') return res.json(await scrapeGenius(url));
+      if (source === 'azlyrics') return res.json(await scrapeAZLyrics(url));
+      if (source === 'lyricscom' || source === 'lyrics.com') return res.json(await scrapeLyricsCom(url));
       return res.status(400).json({ error: 'Unsupported source. Use genius, azlyrics, or lyricscom.' });
     } catch (err) {
       console.error(err);
-      return res.status(500).json({ error: err.message || 'Failed to scrape lyrics from URL.' });
+      return res.status(500).json({ error: err.message });
     }
   }
 
-  // Search Mode
   if (query) {
     try {
       const searchQuery = encodeURIComponent(`${query} site:azlyrics.com OR site:genius.com OR site:lyrics.com`);
       const searchUrl = `https://www.google.com/search?q=${searchQuery}`;
-
       const { data: html } = await axios.get(searchUrl, {
         headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/114 Safari/537.36',
-        },
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/114 Safari/537.36'
+        }
       });
 
       const $ = cheerio.load(html);
@@ -65,27 +70,19 @@ router.get('/', async (req, res) => {
 
       if (links.length === 0) throw new Error('No lyrics sources found.');
 
-      const directUrl = links[0];
-      if (directUrl.includes('azlyrics.com')) {
-        const result = await scrapeAZLyrics(directUrl);
-        return res.json(result);
-      }
-      if (directUrl.includes('genius.com')) {
-        const result = await scrapeGenius(directUrl);
-        return res.json(result);
-      }
-      if (directUrl.includes('lyrics.com')) {
-        const result = await scrapeLyricsCom(directUrl);
-        return res.json(result);
-      }
-      throw new Error('Unsupported lyrics site.');
+      const topLink = links[0];
+      if (topLink.includes('azlyrics.com')) return res.json(await scrapeAZLyrics(topLink));
+      if (topLink.includes('genius.com')) return res.json(await scrapeGenius(topLink));
+      if (topLink.includes('lyrics.com')) return res.json(await scrapeLyricsCom(topLink));
+
+      return res.status(400).json({ error: 'Unsupported lyrics source in result' });
     } catch (err) {
       console.error(err);
-      return res.status(500).json({ error: err.message || 'Failed to scrape lyrics' });
+      return res.status(500).json({ error: err.message });
     }
   }
 
-  return res.status(400).json({ error: 'Missing ?query= or ?url= and ?source= parameters.' });
+  return res.status(400).json({ error: 'Missing ?query= or ?url= and ?source=' });
 });
 
 export default router;

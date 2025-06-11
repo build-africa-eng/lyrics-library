@@ -16,5 +16,5 @@ export default {
     },
   },
   plugins: [],
-  darkMode: 'media',
+  darkMode: 'class', // For Header.jsx dark mode toggle
 };

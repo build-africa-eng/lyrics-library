@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import { Music2 } from "lucide-react";
 
 export default function SongListItem({ title, artist, onClick, active = false }) {

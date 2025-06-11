@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utilis";
+import { cn } from "@/lib/utils/cn";
 
 export default function LyricsDisplay({ lyrics, className }) {
   return (

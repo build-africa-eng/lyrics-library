@@ -16,7 +16,7 @@ async function scrapeGenius(url) {
     const artist = document.querySelector(".header_with_cover_art-primary_info-primary_artist")?.textContent?.trim();
     const lyrics = [...document.querySelectorAll(".Lyrics__Container")]
       .map(el => el.innerText.trim()).join("\n\n");
-    return { title, artist, lyrics, source_url: location.href };
+    return { title, artist, lyrics, source_url: location.href, source: 'genius' };
   });
   await browser.close();
   return data;
@@ -64,6 +64,41 @@ async function scrapeAZLyrics(url) {
   }
 }
 
+// --- Lyrics.com scraper ---
+async function scrapeLyricsCom(url) {
+  const browser = await puppeteer.launch({ headless: 'new' });
+  const page = await browser.newPage();
+
+  try {
+    await page.goto(url, { waitUntil: 'networkidle0' });
+
+    const data = await page.evaluate(() => {
+      const title = document.querySelector("h1")?.textContent?.trim() || null;
+      const artist = document.querySelector("h3 a")?.textContent?.trim() || null;
+      const lyrics = document.querySelector(".lyric-body")?.innerText?.trim() || null;
+
+      return {
+        title,
+        artist,
+        lyrics,
+        source_url: location.href,
+        source: 'lyrics.com',
+      };
+    });
+
+    if (!data.lyrics || !data.title) {
+      throw new Error('Could not extract full lyrics or title');
+    }
+
+    return data;
+  } catch (err) {
+    console.error(`Lyrics.com scrape failed for ${url}:`, err.message);
+    return null;
+  } finally {
+    await browser.close();
+  }
+}
+
 // --- Scrape handler for both search and direct URL ---
 router.get('/', async (req, res) => {
   const { query, url, source } = req.query;
@@ -79,7 +114,11 @@ router.get('/', async (req, res) => {
         const result = await scrapeAZLyrics(url);
         return res.json(result);
       }
-      return res.status(400).json({ error: 'Unsupported source. Use genius or azlyrics.' });
+      if (source === 'lyricscom' || source === 'lyrics.com') {
+        const result = await scrapeLyricsCom(url);
+        return res.json(result);
+      }
+      return res.status(400).json({ error: 'Unsupported source. Use genius, azlyrics, or lyricscom.' });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: err.message || 'Failed to scrape lyrics from URL.' });
@@ -89,7 +128,7 @@ router.get('/', async (req, res) => {
   // Search Mode
   if (query) {
     try {
-      const searchQuery = encodeURIComponent(`${query} site:azlyrics.com OR site:genius.com`);
+      const searchQuery = encodeURIComponent(`${query} site:azlyrics.com OR site:genius.com OR site:lyrics.com`);
       const searchUrl = `https://www.google.com/search?q=${searchQuery}`;
 
       const { data: html } = await axios.get(searchUrl, {
@@ -107,7 +146,9 @@ router.get('/', async (req, res) => {
         if (href?.includes('/url?q=')) {
           const cleanUrl = decodeURIComponent(href.split('/url?q=')[1].split('&')[0]);
           if (
-            (cleanUrl.includes('azlyrics.com') || cleanUrl.includes('genius.com')) &&
+            (cleanUrl.includes('azlyrics.com') ||
+              cleanUrl.includes('genius.com') ||
+              cleanUrl.includes('lyrics.com')) &&
             !cleanUrl.includes('google')
           ) {
             links.push(cleanUrl);
@@ -124,6 +165,10 @@ router.get('/', async (req, res) => {
       }
       if (directUrl.includes('genius.com')) {
         const result = await scrapeGenius(directUrl);
+        return res.json(result);
+      }
+      if (directUrl.includes('lyrics.com')) {
+        const result = await scrapeLyricsCom(directUrl);
         return res.json(result);
       }
       throw new Error('Unsupported lyrics site.');

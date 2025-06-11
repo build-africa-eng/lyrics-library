@@ -2,97 +2,175 @@ import express from 'express';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import morgan from 'morgan';
+import puppeteer from "puppeteer";
+import fetch from "node-fetch";
+
+// --- Genius scraper ---
+async function scrapeGenius(url) {
+  const browser = await puppeteer.launch({ headless: 'new' });
+  const page = await browser.newPage();
+  await page.goto(url, { waitUntil: 'networkidle0' });
+  const data = await page.evaluate(() => {
+    const title = document.querySelector(".header_with_cover_art-primary_info-title")?.textContent?.trim();
+    const artist = document.querySelector(".header_with_cover_art-primary_info-primary_artist")?.textContent?.trim();
+    const lyrics = [...document.querySelectorAll(".Lyrics__Container")]
+      .map(el => el.innerText.trim()).join("\n\n");
+    return { title, artist, lyrics, source_url: location.href };
+  });
+  await browser.close();
+  return data;
+}
+
+// --- AZLyrics scraper ---
+async function scrapeAZLyrics(url) {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+
+    if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    // Extract lyrics (robust fallback if structure changes)
+    let lyrics = $('div[class*="ringtone"] + div').text().trim();
+
+    // Fallback (rare cases)
+    if (!lyrics) {
+      lyrics = $('div:not([class])').filter(function () {
+        return $(this).text().length > 100;
+      }).first().text().trim();
+    }
+
+    if (!lyrics) throw new Error('Lyrics not found');
+
+    // Extract title
+    const title = $('h1').text().replace(' Lyrics', '').trim();
+    if (!title) throw new Error('Title not found');
+
+    // Extract artist from .lyricsh h2 > b
+    const artist = $('.lyricsh h2 b').text().replace(' Lyrics', '').trim();
+    if (!artist) throw new Error('Artist not found');
+
+    return {
+      title,
+      artist,
+      lyrics: lyrics.replace(/\r?\n\s*\r?\n/g, '\n\n'), // normalize blank lines
+      source_url: url,
+      source: 'azlyrics',
+    };
+  } catch (error) {
+    console.error(`AZLyrics scrape failed for ${url}:`, error.message);
+    return null;
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Logger
 app.use(morgan('dev'));
 
-// 🔍 Scrape lyrics from search result
-async function scrapeLyrics(query) {
-  const searchQuery = encodeURIComponent(`${query} site:azlyrics.com OR site:genius.com`);
-  const searchUrl = `https://www.google.com/search?q=${searchQuery}`;
-
-  const { data: html } = await axios.get(searchUrl, {
-    headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/114 Safari/537.36',
-    },
-  });
-
-  const $ = cheerio.load(html);
-  const links = [];
-
-  $('a').each((_, el) => {
-    const href = $(el).attr('href');
-    if (href?.includes('/url?q=')) {
-      const cleanUrl = decodeURIComponent(href.split('/url?q=')[1].split('&')[0]);
-      if (
-        (cleanUrl.includes('azlyrics.com') || cleanUrl.includes('genius.com')) &&
-        !cleanUrl.includes('google')
-      ) {
-        links.push(cleanUrl);
-      }
-    }
-  });
-
-  if (links.length === 0) throw new Error('No lyrics sources found.');
-
-  // Fetch the first result
-  const lyricsPage = await axios.get(links[0]);
-  const $$ = cheerio.load(lyricsPage.data);
-
-  if (links[0].includes('azlyrics.com')) {
-    const lyrics = $$('.col-xs-12.col-lg-8.text-center > div:not([class])')
-      .text()
-      .trim();
-    return { source: links[0], lyrics };
-  } else if (links[0].includes('genius.com')) {
-    const lyrics = $$('[data-lyrics-container]').text().trim();
-    return { source: links[0], lyrics };
-  }
-
-  throw new Error('Unsupported lyrics site.');
-}
-
-// 🎯 /scrape endpoint
+// --- Scrape handler for both search and direct URL ---
 app.get('/scrape', async (req, res) => {
-  const query = req.query.query;
-  if (!query) {
-    return res.status(400).json({ error: 'Missing ?query=' });
+  const { query, url, source } = req.query;
+
+  // 1. Direct URL mode
+  if (url && source) {
+    try {
+      if (source === 'genius') {
+        const result = await scrapeGenius(url);
+        return res.json(result);
+      }
+      if (source === 'azlyrics') {
+        const result = await scrapeAZLyrics(url);
+        return res.json(result);
+      }
+      return res.status(400).json({ error: 'Unsupported source. Use genius or azlyrics.' });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: err.message || 'Failed to scrape lyrics from URL.' });
+    }
   }
 
-  try {
-    const result = await scrapeLyrics(query);
-    res.json(result);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message || 'Failed to scrape lyrics' });
+  // 2. Search mode (default)
+  if (query) {
+    try {
+      const searchQuery = encodeURIComponent(`${query} site:azlyrics.com OR site:genius.com`);
+      const searchUrl = `https://www.google.com/search?q=${searchQuery}`;
+
+      const { data: html } = await axios.get(searchUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/114 Safari/537.36',
+        },
+      });
+
+      const $ = cheerio.load(html);
+      const links = [];
+
+      $('a').each((_, el) => {
+        const href = $(el).attr('href');
+        if (href?.includes('/url?q=')) {
+          const cleanUrl = decodeURIComponent(href.split('/url?q=')[1].split('&')[0]);
+          if (
+            (cleanUrl.includes('azlyrics.com') || cleanUrl.includes('genius.com')) &&
+            !cleanUrl.includes('google')
+          ) {
+            links.push(cleanUrl);
+          }
+        }
+      });
+
+      if (links.length === 0) throw new Error('No lyrics sources found.');
+
+      // Pick the first link and scrape using the correct scraper
+      const directUrl = links[0];
+      if (directUrl.includes('azlyrics.com')) {
+        const result = await scrapeAZLyrics(directUrl);
+        return res.json(result);
+      }
+      if (directUrl.includes('genius.com')) {
+        const result = await scrapeGenius(directUrl);
+        return res.json(result);
+      }
+      throw new Error('Unsupported lyrics site.');
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: err.message || 'Failed to scrape lyrics' });
+    }
   }
+
+  // 3. No valid parameters
+  return res.status(400).json({ error: 'Missing ?query= or ?url= and ?source= parameters.' });
 });
 
-// ✅ Health check
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', uptime: process.uptime() });
 });
 
-// ⭐ Add this handler for root path so / doesn't 404
+// Welcome root
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to the Lyrics Scraper API!',
-    endpoints: ['/scrape?query=...', '/health'],
+    endpoints: [
+      '/scrape?query=your+song+name',
+      '/scrape?url=https://genius.com/...&source=genius',
+      '/scrape?url=https://www.azlyrics.com/...&source=azlyrics',
+      '/health'
+    ],
     status: 'running'
   });
 });
 
-// ❌ Fallback error handler
+// Error handler
 app.use((err, req, res, next) => {
   console.error(`Unhandled error in ${req.method} ${req.originalUrl}: ${err.stack || err.message}`);
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// 🔥 Start server
 app.listen(PORT, () => {
   console.log(`✅ Scraper running on :${PORT}`);
 });

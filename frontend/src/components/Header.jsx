@@ -31,6 +31,7 @@ export default function Header() {
     { name: 'Home', href: '/' },
     { name: 'Library', href: '/library' },
     { name: 'Settings', href: '/settings' },
+    { name: 'About', href: '/About' },
   ];
 
   return (

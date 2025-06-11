@@ -1,14 +1,16 @@
 import { cn } from '@/lib/cn';
-import { Menu, Search, Sun, Moon } from 'lucide-react';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Logo from '@/Logo';
+import Logo from './Logo';
+import SearchBar from './SearchBar';
 
 export default function Header() {
   const [darkMode, setDarkMode] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
 
-  // Sync dark mode with class on <html>
+  // Sync dark mode
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -19,15 +21,15 @@ export default function Header() {
 
   const links = [
     { name: 'Home', href: '/' },
-    { name: 'About', href: '/about' },
-    { name: 'Title', href: '/title' }, // Adjust to 'Library' if needed
+    { name: 'Library', href: '/library' },
+    { name: 'Settings', href: '/settings' },
   ];
 
   return (
     <header
       className={cn(
         'flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800',
-        'bg-white dark:bg-gray-950'
+        'background-color: white; dark:background-color: #18181b;'
       )}
     >
       <div className="flex items-center gap-2">
@@ -41,23 +43,8 @@ export default function Header() {
         <Logo />
       </div>
 
-      <nav className={cn('hidden md:flex items-center gap-4 text-base')}>
-        {links.map((link) => (
-          <Link
-            key={link.name}
-            to={link.href}
-            className={cn(
-              'text-gray-700 dark:text-gray-200',
-              'hover:text-blue-600 dark:hover:text-blue-400 transition-colors'
-            )}
-          >
-            {link.name}
-          </Link>
-        ))}
-      </nav>
-
       <div className="flex items-center gap-4">
-        <Search className="w-5 h-5 cursor-pointer text-gray-600 dark:text-gray-300" />
+        <SearchBar value={searchValue} onChange={setSearchValue} />
         <button
           onClick={() => setDarkMode(!darkMode)}
           className="focus:outline-none text-gray-600 dark:text-gray-300"
@@ -68,7 +55,7 @@ export default function Header() {
       </div>
 
       {menuOpen && (
-        <div className="md:hidden absolute top-16 left-0 w-full bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 p-4">
+        <div className="md:hidden absolute top-16 left-0 w-full bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 p-4 z-10">
           {links.map((link) => (
             <Link
               key={link.name}

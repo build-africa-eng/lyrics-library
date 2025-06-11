@@ -2,7 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #0d0d0d;
-  --foreground: #f1f1f1;
+/* Custom styles (optional) */
+body {
+  @apply bg-background text-foreground font-sans antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted rounded-full;
 }

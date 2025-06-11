@@ -1,4 +1,4 @@
-limport { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import * as api from '@/utils/api';
 
 const LyricsContext = createContext();
@@ -12,8 +12,13 @@ export function LyricsProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.fetchLyrics(query);
-      setLyricsList(Array.isArray(data) ? data : [data]);
+      if (!query) {
+        const data = await api.fetchAllLyrics();
+        setLyricsList(Array.isArray(data) ? data : []);
+      } else {
+        const data = await api.fetchLyrics(query);
+        setLyricsList(Array.isArray(data) ? data : [data]);
+      }
     } catch (err) {
       setError(err.message);
       setLyricsList([]);

@@ -1,19 +1,39 @@
-@tailwind base;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* Base styles */
-import ".overrides.css"; 
+/*
+ * The @reference directive is for advanced cases like CSS Modules
+ * where you need to share Tailwind's context. Since you are not
+ * using CSS Modules, this line is no longer needed.
+ */
+
+@theme {
+  /*
+   * In v4, you define theme colors and other design tokens directly in CSS
+   * using CSS variables with a specific namespace, like --color-*.
+   * Tailwind automatically creates utilities like `bg-zinc-900` from them.
+   */
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-900: #18181b;
+
+  /*
+   * You can also define other theme values. For example, for the `font-sans`
+   * utility, you would define the --font-sans variable.
+   */
+  /* --font-family-sans: "your-font-name", sans-serif; */
+}
 
 body {
   background-color: white;
-  @apply text-zinc-900 font-sans;
+  color: theme(colors.zinc.900); /* Use theme() to access your tokens */
+  font-family: theme(fontFamily.sans);
 }
 
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   body {
-    background-color: #18181b; /* bg-zinc-900 */
-    @apply text-zinc-100;
+    background-color: theme(colors.zinc.900); /* bg-zinc-900 */
+    color: theme(colors.zinc.100);
   }
 }
 
@@ -23,15 +43,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-zinc-100;
+  background-color: theme(colors.zinc.100);
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-zinc-400 rounded-full;
+  background-color: theme(colors.zinc.400);
+  border-radius: 9999px;
 }
 
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #71717a #f4f4f5; /* zinc-400, zinc-100 */
+  scrollbar-color: theme(colors.zinc.400) theme(colors.zinc.100);
 }

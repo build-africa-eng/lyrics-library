@@ -1,4 +1,4 @@
-routes/scrapelyrics.js
+// /worker/src/routes/scrapelyrics.js
 import { normalizeQuery } from "../utils/normalize";
 
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days

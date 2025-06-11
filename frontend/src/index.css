@@ -14,3 +14,8 @@ body {
 ::-webkit-scrollbar-thumb {
   @apply bg-muted rounded-full;
 }
+
+:root {
+  --background: 0 0% 100%; /* white for light mode */
+  --foreground: 240 10% 4%; /* dark text */
+}

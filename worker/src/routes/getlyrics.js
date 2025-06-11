@@ -1,24 +1,32 @@
-// /worker/routes/getlyrics.js
-import { normalizeQuery } from '../utils/normalize';
+import { normalizeQuery } from "../utils/normalize.js";
 
-export async function getLyrics(req, db) {
-  const { searchParams } = new URL(req.url);
-  const rawQuery = searchParams.get('query');
+export async function addLyrics(req, db) {
+  try {
+    const { query, title, artist, lyrics, source_url } = await req.json();
 
-  if (!rawQuery) {
-    return new Response(JSON.stringify({ error: "Missing ?query=" }), { status: 400 });
-  }
+    if (!query || !lyrics || !title || !artist) {
+      return new Response(JSON.stringify({ error: "Missing required fields" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
 
-  const query = normalizeQuery(rawQuery);
+    const normalizedQuery = normalizeQuery(query);
+    const timestamp = Math.floor(Date.now() / 1000);
 
-  const cached = await db.prepare('SELECT * FROM lyrics WHERE query = ?').bind(query).first();
+    await db.prepare(`
+      INSERT OR REPLACE INTO lyrics (query, title, artist, lyrics, source_url, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(normalizedQuery, title, artist, lyrics, source_url || null, timestamp).run();
 
-  if (cached) {
-    return Response.json({
-      cached: true,
-      ...cached,
+    return new Response(JSON.stringify({ success: true, message: "Lyrics added" }), {
+      status: 201,
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: "Invalid JSON or server error", detail: err.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
     });
   }
-
-  return new Response(JSON.stringify({ error: "Lyrics not found in cache" }), { status: 404 });
 }

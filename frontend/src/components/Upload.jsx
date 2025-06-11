@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { UploadCloud } from 'lucide-react';
-import Button from '@/Button';
+import Button from '@/components/Button';
 import { cn } from '@/lib/cn';
 
 export default function Upload() {

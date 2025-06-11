@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { UploadCloud } from 'lucide-react';
-import Button from './Button';
+import Button from '@/Button';
+import { cn } from '@/lib/cn';
 
 export default function Upload() {
   const [fileName, setFileName] = useState('');
@@ -36,7 +37,10 @@ export default function Upload() {
 
   return (
     <div
-      className="w-full max-w-md p-4 mx-auto rounded-2xl shadow-md background-color: white; dark:background-color: #18181b;"
+      className={cn(
+        'w-full max-w-md p-4 mx-auto rounded-2xl shadow-md',
+        'background-color: white; dark:background-color: #18181b;'
+      )}
     >
       <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
         <UploadCloud className="w-5 h-5 text-blue-500" />

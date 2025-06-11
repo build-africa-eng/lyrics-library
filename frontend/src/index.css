@@ -2,6 +2,8 @@
 @tailwind utilities;
 
 /* Base styles */
+@reference ".overrides.css"; 
+
 body {
   background-color: white;
   @apply text-zinc-900 font-sans;

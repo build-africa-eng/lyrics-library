@@ -13,7 +13,7 @@ export default function Sidebar({ className }) {
     <aside
       className={cn(
         'w-48 p-4 border-r border-gray-200 dark:border-gray-700 h-screen fixed top-0 left-0',
-        'background-color: white; dark:background-color: #18181b;',
+        'bg-white dark:bg-zinc-900', // Corrected styling
         className
       )}
     >

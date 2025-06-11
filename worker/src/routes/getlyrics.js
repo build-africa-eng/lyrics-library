@@ -1,5 +1,24 @@
-// /worker/src/routes/getLyrics.js
+// /worker/routes/getlyrics.js
+import { normalizeQuery } from '../utils/normalize';
+
 export async function getLyrics(req, db) {
-  const { results } = await db.prepare("SELECT * FROM lyrics ORDER BY created_at DESC").all();
-  return new Response(JSON.stringify(results), { headers: { 'Content-Type': 'application/json' } });
+  const { searchParams } = new URL(req.url);
+  const rawQuery = searchParams.get('query');
+
+  if (!rawQuery) {
+    return new Response(JSON.stringify({ error: "Missing ?query=" }), { status: 400 });
+  }
+
+  const query = normalizeQuery(rawQuery);
+
+  const cached = await db.prepare('SELECT * FROM lyrics WHERE query = ?').bind(query).first();
+
+  if (cached) {
+    return Response.json({
+      cached: true,
+      ...cached,
+    });
+  }
+
+  return new Response(JSON.stringify({ error: "Lyrics not found in cache" }), { status: 404 });
 }

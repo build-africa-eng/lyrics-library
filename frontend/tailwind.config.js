@@ -1,6 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  content: [
+    './index.html',
+    './src/**/*.{js,jsx,ts,tsx}',
+  ],
   theme: {
     extend: {
       colors: {
@@ -13,5 +16,5 @@ export default {
     },
   },
   plugins: [],
-  darkMode: 'media', // Enables dark mode based on prefers-color-scheme
+  darkMode: 'media',
 };

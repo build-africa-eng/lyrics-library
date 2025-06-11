@@ -1,17 +1,15 @@
-import Navbar from '@/components/Header';
-import SearchBar from '@/components/SearchBar';
+// src/pages/Home.jsx
+import Header from '@/components/Header'; // Replaces Navbar
 import LyricsDisplay from '@/components/LyricsDisplay';
 import Upload from '@/components/Upload';
 import { useLyrics } from '@/context/LyricsContext';
-import { useState } from 'react';
 
 export default function Home() {
   const { lyricsList, loading, error } = useLyrics();
-  const [searchValue, setSearchValue] = useState('');
 
   return (
     <>
-      <Navbar />
+      <Header />
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-10">
         <section className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
@@ -22,11 +20,21 @@ export default function Home() {
           </p>
         </section>
 
-        <SearchForm />
-        <SearchBar value={searchValue} onChange={setSearchValue} />
+        {/* Removed: <SearchForm /> and <SearchBar /> since Header handles global search */}
         <Upload />
-        {loading && <div className="text-center text-gray-600 dark:text-gray-400">Loading...</div>}
-        {error && <div className="text-center text-red-500">{error}</div>}
+
+        {loading && (
+          <div className="text-center text-gray-600 dark:text-gray-400">
+            Loading...
+          </div>
+        )}
+
+        {error && (
+          <div className="text-center text-red-500">
+            {error}
+          </div>
+        )}
+
         {lyricsList.length > 0 && (
           <LyricsDisplay lyrics={lyricsList[0].lyrics} />
         )}

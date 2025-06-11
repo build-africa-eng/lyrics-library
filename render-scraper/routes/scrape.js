@@ -1,105 +1,12 @@
 import express from 'express';
-import puppeteer from "puppeteer";
-import fetch from "node-fetch";
-import * as cheerio from 'cheerio';
+import { scrapeGenius } from '../scrapers/genius.js';
+import { scrapeAZLyrics } from '../scrapers/azlyrics.js';
+import { scrapeLyricsCom } from '../scrapers/lyricscom.js';
 import axios from 'axios';
+import * as cheerio from 'cheerio';
 
 const router = express.Router();
 
-// --- Genius scraper ---
-async function scrapeGenius(url) {
-  const browser = await puppeteer.launch({ headless: 'new' });
-  const page = await browser.newPage();
-  await page.goto(url, { waitUntil: 'networkidle0' });
-  const data = await page.evaluate(() => {
-    const title = document.querySelector(".header_with_cover_art-primary_info-title")?.textContent?.trim();
-    const artist = document.querySelector(".header_with_cover_art-primary_info-primary_artist")?.textContent?.trim();
-    const lyrics = [...document.querySelectorAll(".Lyrics__Container")]
-      .map(el => el.innerText.trim()).join("\n\n");
-    return { title, artist, lyrics, source_url: location.href, source: 'genius' };
-  });
-  await browser.close();
-  return data;
-}
-
-// --- AZLyrics scraper ---
-async function scrapeAZLyrics(url) {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    });
-
-    if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
-    const html = await res.text();
-    const $ = cheerio.load(html);
-
-    let lyrics = $('div[class*="ringtone"] + div').text().trim();
-
-    if (!lyrics) {
-      lyrics = $('div:not([class])').filter(function () {
-        return $(this).text().length > 100;
-      }).first().text().trim();
-    }
-
-    if (!lyrics) throw new Error('Lyrics not found');
-
-    const title = $('h1').text().replace(' Lyrics', '').trim();
-    if (!title) throw new Error('Title not found');
-
-    const artist = $('.lyricsh h2 b').text().replace(' Lyrics', '').trim();
-    if (!artist) throw new Error('Artist not found');
-
-    return {
-      title,
-      artist,
-      lyrics: lyrics.replace(/\r?\n\s*\r?\n/g, '\n\n'),
-      source_url: url,
-      source: 'azlyrics',
-    };
-  } catch (error) {
-    console.error(`AZLyrics scrape failed for ${url}:`, error.message);
-    return null;
-  }
-}
-
-// --- Lyrics.com scraper ---
-async function scrapeLyricsCom(url) {
-  const browser = await puppeteer.launch({ headless: 'new' });
-  const page = await browser.newPage();
-
-  try {
-    await page.goto(url, { waitUntil: 'networkidle0' });
-
-    const data = await page.evaluate(() => {
-      const title = document.querySelector("h1")?.textContent?.trim() || null;
-      const artist = document.querySelector("h3 a")?.textContent?.trim() || null;
-      const lyrics = document.querySelector(".lyric-body")?.innerText?.trim() || null;
-
-      return {
-        title,
-        artist,
-        lyrics,
-        source_url: location.href,
-        source: 'lyrics.com',
-      };
-    });
-
-    if (!data.lyrics || !data.title) {
-      throw new Error('Could not extract full lyrics or title');
-    }
-
-    return data;
-  } catch (err) {
-    console.error(`Lyrics.com scrape failed for ${url}:`, err.message);
-    return null;
-  } finally {
-    await browser.close();
-  }
-}
-
-// --- Scrape handler for both search and direct URL ---
 router.get('/', async (req, res) => {
   const { query, url, source } = req.query;
 

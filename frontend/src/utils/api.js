@@ -1,5 +1,13 @@
-// Centralized API helper for lyrics library frontend
+// src/utils/api.js
 const BASE_URL = 'https://lyrics-worker.afrcanfuture.workers.dev';
+
+export function normalizeQuery(str) {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export async function fetchLyrics(query) {
   const normalizedQuery = normalizeQuery(query);
@@ -25,7 +33,7 @@ export async function addLyrics({ title, artist, lyrics }) {
 }
 
 export async function scrapeLyrics(url) {
-  const res = await fetch(`${BASE_URL}/scrapelyrics`, {
+  const res = await fetch(`${BASE_URL}/scrape`, { // corrected to `/scrape`
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),

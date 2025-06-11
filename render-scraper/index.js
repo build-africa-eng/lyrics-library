@@ -77,6 +77,15 @@ app.get('/health', (req, res) => {
   res.json({ status: 'healthy', uptime: process.uptime() });
 });
 
+// ⭐ Add this handler for root path so / doesn't 404
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Welcome to the Lyrics Scraper API!',
+    endpoints: ['/scrape?query=...', '/health'],
+    status: 'running'
+  });
+});
+
 // ❌ Fallback error handler
 app.use((err, req, res, next) => {
   console.error(`Unhandled error in ${req.method} ${req.originalUrl}: ${err.stack || err.message}`);

@@ -1,16 +1,33 @@
 @tailwind base;
-@tailwind components;
 @tailwind utilities;
 
-/* Custom styles (optional) */
+/* Base styles */
 body {
-  @apply bg-white text-zinc-900 font-sans antialiased;
+  @apply bg-white text-zinc-900 font-sans;
 }
 
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  body {
+    @apply bg-zinc-900 text-zinc-100;
+  }
+}
+
+/* Scrollbar styles (WebKit) */
 ::-webkit-scrollbar {
   width: 6px;
 }
 
+::-webkit-scrollbar-track {
+  @apply bg-zinc-100;
+}
+
 ::-webkit-scrollbar-thumb {
-  @apply bg-zinc-200 rounded-full;
+  @apply bg-zinc-400 rounded-full;
+}
+
+/* Firefox scrollbar (basic support) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: theme('colors.zinc.400') theme('colors.zinc.100');
 }

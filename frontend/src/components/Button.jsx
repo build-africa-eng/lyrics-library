@@ -1,5 +1,5 @@
 // src/components/Button.jsx
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 
 export default function Button({ children, variant = "default", className = "", ...props }) {
   const base =

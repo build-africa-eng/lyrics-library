@@ -2,7 +2,7 @@ import { Menu } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/cn';
-import Logo from '.@/Logo';
+import Logo from '@/Logo';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);

@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import Input from '@/Input';
+import Input from '@/ui/Input';
 
 export default function SearchBar({ value, onChange, placeholder = 'Search songs...' }) {
   return (

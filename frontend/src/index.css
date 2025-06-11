@@ -29,5 +29,5 @@ body {
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #71717a #f4f4f5; /* zinc-400 and zinc-100 hex values */
+  scrollbar-color: #71717a #f4f4f5; /* zinc-400, zinc-100 */
 }

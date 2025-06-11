@@ -6,3 +6,10 @@ compatibility_date = "2025-06-10"
 binding = "DB"
 database_name = "lyrics_db"
 database_id = "1da90d4c-2ada-4c8c-88e0-fb329b600ecc"
+
+[observability.logs]
+enabled = true
+
+
+
+

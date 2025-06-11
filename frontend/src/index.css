@@ -2,7 +2,7 @@
 @tailwind utilities;
 
 /* Base styles */
-@reference ".overrides.css"; 
+import ".overrides.css"; 
 
 body {
   background-color: white;

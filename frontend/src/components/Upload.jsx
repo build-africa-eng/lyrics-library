@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { UploadCloud } from 'lucide-react';
+import Button from './Button';
 
 export default function Upload() {
   const [fileName, setFileName] = useState('');
@@ -34,25 +35,25 @@ export default function Upload() {
   };
 
   return (
-    <div className="w-full max-w-md p-4 mx-auto bg-white dark:bg-zinc-900 rounded-2xl shadow-md">
+    <div
+      className="w-full max-w-md p-4 mx-auto rounded-2xl shadow-md background-color: white; dark:background-color: #18181b;"
+    >
       <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
         <UploadCloud className="w-5 h-5 text-blue-500" />
         Upload Lyrics (.txt)
       </h2>
-      <label className="block w-full cursor-pointer">
-        <input
-          type="file"
-          accept=".txt"
-          onChange={handleUpload}
-          className="block w-full text-sm text-gray-500
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-lg file:border-0
-            file:text-sm file:font-semibold
-            file:bg-blue-50 file:text-blue-700
-            hover:file:bg-blue-100"
-        />
+      <label className="block w-full">
+        <Button as="span" className="w-full text-left">
+          Choose File
+          <input
+            type="file"
+            accept=".txt"
+            onChange={handleUpload}
+            className="hidden"
+          />
+        </Button>
       </label>
-      {fileName && <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">Selected: {fileName}</p>}
+      {fileName && <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">Selected: {fileName}</p>}
       {status && <p className="mt-1 text-sm text-blue-600 dark:text-blue-400">{status}</p>}
     </div>
   );

@@ -1,18 +1,55 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Menu } from "lucide-react";
+import { useState } from "react";
+import Logo from "./Logo";
+import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 export default function Navbar() {
-  const { pathname } = useLocation()
+  const [open, setOpen] = useState(false);
 
-  const linkClass = (path) =>
-    `px-4 py-2 ${pathname === path ? 'text-primary font-bold' : 'text-muted-foreground'}`
+  const links = [
+    { name: "Home", href: "/" },
+    { name: "About", href: "/about" },
+    { name: "Library", href: "/library" },
+  ];
 
   return (
-    <nav className="w-full flex justify-between items-center px-6 py-3 bg-background shadow-sm sticky top-0 z-50">
-      <Link to="/" className="text-xl font-bold">LyricsLib</Link>
-      <div className="flex gap-4">
-        <Link to="/" className={linkClass('/')}>Home</Link>
-        <Link to="/about" className={linkClass('/about')}>About</Link>
+    <header className="w-full px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+      <div className="max-w-6xl mx-auto flex items-center justify-between">
+        <Logo />
+        <nav className="hidden md:flex items-center gap-6 text-sm">
+          {links.map((link) => (
+            <Link
+              key={link.name}
+              to={link.href}
+              className="text-zinc-700 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            >
+              {link.name}
+            </Link>
+          ))}
+        </nav>
+
+        <button onClick={() => setOpen(!open)} className="md:hidden text-zinc-600 dark:text-zinc-300">
+          <Menu className="h-5 w-5" />
+        </button>
       </div>
-    </nav>
-  )
+
+      {open && (
+        <div className="md:hidden mt-2 space-y-2 px-4 pb-3 text-sm">
+          {links.map((link) => (
+            <Link
+              key={link.name}
+              to={link.href}
+              onClick={() => setOpen(false)}
+              className={cn(
+                "block text-zinc-700 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400"
+              )}
+            >
+              {link.name}
+            </Link>
+          ))}
+        </div>
+      )}
+    </header>
+  );
 }

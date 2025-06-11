@@ -5,6 +5,7 @@ import { Routes, Route } from 'react-router-dom';
 import Home from '@/pages/Home';
 import About from '@/pages/About';
 import Library from '@/pages/Library';
+import Settings from '@/components/Settings';
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/library" element={<Library />} />
         <Route path="/about" element={<About />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </LyricsProvider>
   );

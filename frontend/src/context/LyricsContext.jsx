@@ -1,5 +1,5 @@
-import { createContext, useContext, useState } from "react";
-import * as api from "@/utils/api";
+limport { createContext, useContext, useState } from 'react';
+import * as api from '@/utils/api';
 
 const LyricsContext = createContext();
 

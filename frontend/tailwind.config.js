@@ -1,4 +1,5 @@
 /** @type {import('tailwindcss').Config} */
+import { zinc } from 'tailwindcss/colors'
 export default {
   content: [
     './index.html',
@@ -7,6 +8,7 @@ export default {
   theme: {
     extend: {
       colors: {
+        zinc,
         primary: '#1e40af',
         secondary: '#60a5fa',
       },

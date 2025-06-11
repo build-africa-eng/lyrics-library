@@ -1,18 +1,17 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
-  darkMode: "class",
-  content: [
-    "./index.html",
-    "./src/**/*.{js,jsx,ts,tsx}",
-  ],
+export default {
+  content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        // Reference CSS variable (optional, advanced)
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        primary: '#1e40af',
+        secondary: '#60a5fa',
+      },
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
       },
     },
   },
   plugins: [],
+  darkMode: 'media', // Enables dark mode based on prefers-color-scheme
 };

@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import { Home, Library, Settings } from "lucide-react";
 import { NavLink } from "react-router-dom";
 

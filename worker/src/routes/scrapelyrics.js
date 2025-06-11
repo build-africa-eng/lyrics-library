@@ -87,3 +87,5 @@ export async function scrapeLyrics(req, db) {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
+  }
+}

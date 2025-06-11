@@ -2,8 +2,8 @@ import { cn } from '@/lib/cn';
 import { Menu, Sun, Moon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Logo from './Logo';
-import SearchBar from './SearchBar';
+import Logo from '@/components/Logo';
+import SearchBar from '@/components/SearchBar';
 
 export default function Header() {
   const [darkMode, setDarkMode] = useState(false);

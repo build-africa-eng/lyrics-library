@@ -1,4 +1,4 @@
-// /worker/src/routes/scrapeLyrics.js
+routes/scrapelyrics.js
 import { normalizeQuery } from "../utils/normalize";
 
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
@@ -18,11 +18,11 @@ export async function scrapeLyrics(req, db) {
     let normalizedQuery = overrideQuery ? normalizeQuery(overrideQuery) : null;
     const now = Math.floor(Date.now() / 1000);
 
-    // 1. Check cache if normalized query exists
+    // 1. Check cache
     if (normalizedQuery) {
-      const cached = await db.prepare(`
-        SELECT * FROM lyrics WHERE query = ? AND created_at >= ?
-      `).bind(normalizedQuery, now - MAX_AGE_SECONDS).first();
+      const cached = await db.prepare(
+        `SELECT * FROM lyrics WHERE query = ? AND created_at >= ?`
+      ).bind(normalizedQuery, now - MAX_AGE_SECONDS).first();
 
       if (cached) {
         return new Response(JSON.stringify({ cached: true, ...cached }), {
@@ -52,7 +52,6 @@ export async function scrapeLyrics(req, db) {
 
     const scraped = await res.json();
 
-    // 3. If query not provided, derive from title + artist
     if (!normalizedQuery && scraped.title && scraped.artist) {
       normalizedQuery = normalizeQuery(`${scraped.title} ${scraped.artist}`);
     }
@@ -64,7 +63,6 @@ export async function scrapeLyrics(req, db) {
       });
     }
 
-    // 4. Save to cache
     await db.prepare(`
       INSERT OR REPLACE INTO lyrics (query, title, artist, lyrics, source_url, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -89,5 +87,3 @@ export async function scrapeLyrics(req, db) {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
-  }
-}

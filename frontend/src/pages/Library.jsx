@@ -1,4 +1,3 @@
-import Header from '@/components/Header'; // Use the new Header
 import Card from '@/components/Card';
 import { useLyrics } from '@/context/LyricsContext';
 import { useEffect } from 'react';
@@ -15,7 +14,6 @@ export default function Library() {
 
   return (
     <>
-      <Header />
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         <h1 className="text-3xl font-semibold text-gray-900 dark:text-gray-100">
           Your Library

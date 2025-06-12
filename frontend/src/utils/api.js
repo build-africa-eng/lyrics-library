@@ -1,5 +1,5 @@
 // Corrected the typo in the worker URL
-const BASE_URL = 'https://lyrics-worker.africanfuture.workers.dev';
+const BASE_URL = 'https://lyrics-worker.afrcanfuture.workers.dev';
 
 export function normalizeQuery(str) {
   return str

@@ -1,4 +1,3 @@
-// src/context/LyricsContext.jsx
 import { createContext, useContext, useState, useCallback } from 'react';
 import * as api from '@/utils/api';
 
@@ -19,7 +18,8 @@ export function LyricsProvider({ children }) {
         setLyricsList(Array.isArray(data) ? data : []);
       } else {
         const data = await api.fetchLyrics(query);
-        setLyricsList(Array.isArray(data) ? data : [data]);
+        // Ensure result is always an array for consistent state
+        setLyricsList(Array.isArray(data) ? data : (data ? [data] : []));
       }
     } catch (err) {
       setError(err.message);
@@ -29,31 +29,34 @@ export function LyricsProvider({ children }) {
     }
   }, []);
 
-  const addLyrics = useCallback(async ({ title, artist, lyrics }) => {
+  // Improved logic: avoids a second network call
+  const addLyrics = useCallback(async (newLyricData) => {
     setLoading(true);
     setError(null);
     try {
-      await api.addLyrics({ title, artist, lyrics });
-      await searchLyrics(`${title} ${artist}`);
+      // The API should return the newly created lyric object
+      const addedLyric = await api.addLyrics(newLyricData);
+      // Add the new lyric to the existing list in state
+      setLyricsList((prevList) => [addedLyric, ...prevList]);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [searchLyrics]);
+  }, []);
+
+  const value = {
+    lyricsList,
+    loading,
+    error,
+    searchTerm,
+    setSearchTerm,
+    searchLyrics,
+    addLyrics,
+  };
 
   return (
-    <LyricsContext.Provider
-      value={{
-        lyricsList,
-        loading,
-        error,
-        searchTerm,
-        setSearchTerm,
-        searchLyrics,
-        addLyrics,
-      }}
-    >
+    <LyricsContext.Provider value={value}>
       {children}
     </LyricsContext.Provider>
   );

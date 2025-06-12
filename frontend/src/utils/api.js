@@ -1,5 +1,5 @@
-// src/utils/api.js
-const BASE_URL = https://lyrics-worker.afrcanfuture.workers.dev';
+// Corrected the typo in the worker URL
+const BASE_URL = 'https://lyrics-worker.africanfuture.workers.dev';
 
 export function normalizeQuery(str) {
   return str
@@ -18,7 +18,7 @@ export async function fetchLyrics(query) {
 
 export async function fetchAllLyrics() {
   const res = await fetch(`${BASE_URL}/lyrics`);
-  if (!res.ok) throw new Error('Could not fetch lyrics');
+  if (!res.ok) throw new Error('Could not fetch all lyrics');
   return res.json();
 }
 
@@ -33,7 +33,8 @@ export async function addLyrics({ title, artist, lyrics }) {
 }
 
 export async function scrapeLyrics(url) {
-  const res = await fetch(`${BASE_URL}/scrape`, { // corrected to `/scrape`
+  // The path is already correct here, matching our router fix
+  const res = await fetch(`${BASE_URL}/scrape`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),

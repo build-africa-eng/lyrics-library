@@ -1,5 +1,5 @@
 // src/utils/api.js
-const BASE_URL = 'https://lyrics-worker.afrcanfuture.workers.dev';
+const BASE_URL = https://lyrics-worker.afrcanfuture.workers.dev';
 
 export function normalizeQuery(str) {
   return str

@@ -1,21 +1,29 @@
-// src/App.jsx
-import { LyricsProvider } from './context/LyricsContext';
-import { Routes, Route } from 'react-router-dom';
-
-import Home from '@/pages/Home';
-import About from '@/pages/About';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import AppLayout from './components/AppLayout'; // Import the new layout
+import Home from './pages/Home';
 import Library from '@/pages/Library';
 import Settings from '@/components/Settings';
+import NotFound from '@/pages/NotFound';
+import About from '@/pages/About';
+// ... import other components
 
-export default function App() {
+function App() {
   return (
-    <LyricsProvider>
+    <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/library" element={<Library />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/settings" element={<Settings />} />
+        {/* All routes inside AppLayout will share the same Header and structure */}
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/library" element={<Library />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/About" element={<About />} />
+        </Route>
+        
+        {/* A route for a page that SHOULDN'T have the main layout, like a 404 page */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
-    </LyricsProvider>
+    </BrowserRouter>
   );
 }
+
+export default App;

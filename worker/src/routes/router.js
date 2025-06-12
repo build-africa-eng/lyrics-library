@@ -1,6 +1,6 @@
 import { getLyrics } from './getlyrics';
-import { addLyrics } from './addlyrics';
-import { scrapeLyrics } from './scrapelyrics';
+import { addLyrics as addLyricsHandler } from './addlyrics'; // Renamed to avoid conflict
+import { scrapeLyrics as scrapeLyricsHandler } from './scrapelyrics'; // Renamed to avoid conflict
 
 const ALLOWED_ORIGIN = "https://lyrics-library.pages.dev";
 
@@ -45,7 +45,7 @@ export async function router(req, db) {
     const resp = new Response(
       JSON.stringify({
         message: "Lyrics Worker is running!",
-        usage: "POST /scrapelyrics with { url } in the body"
+        usage: "POST /scrape with { url } in the body" // Updated usage message
       }),
       { headers: { "Content-Type": "application/json" } }
     );
@@ -60,13 +60,14 @@ export async function router(req, db) {
 
   // POST /lyrics - Add lyrics
   if (method === 'POST' && pathname === '/lyrics') {
-    const resp = await addLyrics(req, db);
+    const resp = await addLyricsHandler(req, db);
     return withCors(resp, origin);
   }
 
-  // POST /scrapelyrics - Scrape lyrics from external source
-  if (method === 'POST' && pathname === '/scrapelyrics') {
-    const resp = await scrapeLyrics(req, db);
+  // POST /scrape - Scrape lyrics from external source
+  // Corrected path from /scrapelyrics to /scrape to match the frontend
+  if (method === 'POST' && pathname === '/scrape') {
+    const resp = await scrapeLyricsHandler(req, db);
     return withCors(resp, origin);
   }
 

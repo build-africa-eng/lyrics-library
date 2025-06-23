@@ -2,12 +2,12 @@ import { getLyrics } from './getlyrics';
 import { addLyrics as addLyricsHandler } from './addlyrics';
 import { scrapeLyrics as scrapeLyricsHandler } from './scrapelyrics';
 
-// CORS config
+// Allowed origins
 const ALLOWED_ORIGINS = [
   "https://lyrics-library.pages.dev",
   "http://localhost:3000",
   "http://localhost:5173",
-  "https://your-preview-domain.pages.dev"
+  "https://your-preview-domain.pages.dev",
 ];
 
 function getCorsHeaders(origin) {
@@ -35,11 +35,10 @@ function withCors(resp, origin) {
 
 export async function router(req, db) {
   const url = new URL(req.url);
-  const { pathname, searchParams } = url;
+  const { pathname } = url;
   const method = req.method;
   const origin = req.headers.get("Origin") || "*";
 
-  // Handle preflight CORS
   if (method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -50,77 +49,72 @@ export async function router(req, db) {
   console.log(`[${method}] ${pathname}`);
 
   try {
-    // GET /
+    // Health check
     if (method === "GET" && pathname === "/") {
       return withCors(new Response(JSON.stringify({
         message: "Lyrics Worker is running.",
         endpoints: {
-          "GET /lyrics?query=...": "Search or fetch lyrics (auto scrape fallback)",
+          "GET /lyrics?query=...": "Search or fetch lyrics",
           "POST /lyrics": "Add lyrics manually",
-          "POST /scrape": "Scrape lyrics from a URL"
+          "POST /scrape": "Scrape lyrics from a URL",
+          "GET /test-render": "Test connection to Render scraper"
         }
-      }), {
-        headers: { "Content-Type": "application/json" }
-      }), origin);
+      }), { headers: { "Content-Type": "application/json" } }), origin);
     }
 
-    // GET /lyrics with optional fallback to /scrape
+    // Search lyrics
     if (method === "GET" && pathname === "/lyrics") {
-      const query = searchParams.get('query');
-
-      // 1. Attempt to get lyrics from DB
-      const resp = await getLyrics(req, db);
-      const data = await resp.clone().json();
-
-      // 2. If found, return normally
-      if (resp.status === 200 && (data?.lyrics || data?.found)) {
-        return withCors(resp, origin);
-      }
-
-      // 3. If not found and query present, auto-fallback to scrape
-      if (query) {
-        const scrapeReq = new Request(`${req.url.replace(/\/lyrics.*$/, "/scrape")}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query })
-        });
-
-        const scraped = await scrapeLyricsHandler(scrapeReq, db);
-        return withCors(scraped, origin);
-      }
-
-      // 4. If no query and nothing found, return original
-      return withCors(resp, origin);
+      return withCors(await getLyrics(req, db), origin);
     }
 
-    // POST /lyrics - Manual add
+    // Add lyrics
     if (method === "POST" && pathname === "/lyrics") {
       return withCors(await addLyricsHandler(req, db), origin);
     }
 
-    // POST /scrape - Scrape directly
+    // Scrape lyrics
     if (method === "POST" && pathname === "/scrape") {
       return withCors(await scrapeLyricsHandler(req, db), origin);
     }
 
-    // Fallback 404
+    // 🧪 Render test route
+    if (method === "GET" && pathname === "/test-render") {
+      try {
+        const testUrl = 'https://lyrics-library-hnz7.onrender.com/scrape?query=kendrick+lamar+humble';
+        const res = await fetch(testUrl);
+        const data = await res.json();
+
+        return withCors(new Response(JSON.stringify({
+          ok: res.ok,
+          status: res.status,
+          result: data
+        }), {
+          status: res.status,
+          headers: { "Content-Type": "application/json" }
+        }), origin);
+      } catch (err) {
+        return withCors(new Response(JSON.stringify({
+          error: "Failed to connect to Render",
+          detail: err.message
+        }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" }
+        }), origin);
+      }
+    }
+
+    // 404 fallback
     return withCors(new Response(JSON.stringify({
       error: "Not found",
       method,
       path: pathname
-    }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" }
-    }), origin);
+    }), { status: 404, headers: { "Content-Type": "application/json" } }), origin);
 
   } catch (err) {
     console.error("Router error:", err);
     return withCors(new Response(JSON.stringify({
       error: "Internal server error",
       detail: err.message
-    }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    }), origin);
+    }), { status: 500, headers: { "Content-Type": "application/json" } }), origin);
   }
 }

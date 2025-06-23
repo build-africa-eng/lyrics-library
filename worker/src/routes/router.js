@@ -2,18 +2,17 @@ import { getLyrics } from './getlyrics';
 import { addLyrics as addLyricsHandler } from './addlyrics';
 import { scrapeLyrics as scrapeLyricsHandler } from './scrapelyrics';
 
-// Allow multiple origins for development and production
+// Config
 const ALLOWED_ORIGINS = [
   "https://lyrics-library.pages.dev",
-  "http://localhost:3000", 
-  "http://localhost:5173", // Vite dev server
-  "https://your-preview-domain.pages.dev" // Add your preview domains
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://your-preview-domain.pages.dev",
 ];
 
 function getCorsHeaders(origin) {
   const isAllowed = ALLOWED_ORIGINS.includes(origin) || 
-                   (origin && origin.includes('.pages.dev')); // Allow all Pages.dev subdomains
-  
+                    (origin && origin.endsWith(".pages.dev"));
   return {
     "Access-Control-Allow-Origin": isAllowed ? origin : ALLOWED_ORIGINS[0],
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
@@ -24,9 +23,9 @@ function getCorsHeaders(origin) {
 }
 
 function withCors(resp, origin) {
-  const headers = new Headers(resp.headers);
-  for (const [k, v] of Object.entries(getCorsHeaders(origin))) {
-    headers.set(k, v);
+  const headers = new Headers(resp.headers || {});
+  for (const [key, value] of Object.entries(getCorsHeaders(origin))) {
+    headers.set(key, value);
   }
   return new Response(resp.body, {
     status: resp.status,
@@ -37,9 +36,9 @@ function withCors(resp, origin) {
 
 export async function router(req, db) {
   const url = new URL(req.url);
-  const pathname = url.pathname;
+  const { pathname } = url;
   const method = req.method;
-  const origin = req.headers.get("Origin");
+  const origin = req.headers.get("Origin") || "*";
 
   // Handle CORS preflight
   if (method === "OPTIONS") {
@@ -49,60 +48,47 @@ export async function router(req, db) {
     });
   }
 
+  // Basic logging (optional)
+  console.log(`[${method}] ${pathname}`);
+
   try {
-    // Welcome/health endpoint
+    // Root: Health check
     if (method === "GET" && pathname === "/") {
-      const resp = new Response(
-        JSON.stringify({
-          message: "Lyrics Worker is running!",
-          endpoints: {
-            "GET /lyrics?query=...": "Search for lyrics",
-            "GET /lyrics": "Get all lyrics", 
-            "POST /lyrics": "Add new lyrics",
-            "POST /scrape": "Scrape lyrics from URL"
-          }
-        }),
-        { headers: { "Content-Type": "application/json" } }
-      );
-      return withCors(resp, origin);
+      return withCors(new Response(JSON.stringify({
+        message: "Lyrics Worker is running.",
+        endpoints: {
+          "GET /lyrics?query=...": "Search or fetch lyrics",
+          "POST /lyrics": "Add lyrics manually",
+          "POST /scrape": "Scrape lyrics from a URL"
+        }
+      }), { headers: { "Content-Type": "application/json" } }), origin);
     }
 
-    // GET /lyrics - Retrieve lyrics
-    if (method === 'GET' && pathname === '/lyrics') {
-      const resp = await getLyrics(req, db);
-      return withCors(resp, origin);
+    // Handle known routes
+    if (method === "GET" && pathname === "/lyrics") {
+      return withCors(await getLyrics(req, db), origin);
     }
 
-    // POST /lyrics - Add lyrics
-    if (method === 'POST' && pathname === '/lyrics') {
-      const resp = await addLyricsHandler(req, db);
-      return withCors(resp, origin);
+    if (method === "POST" && pathname === "/lyrics") {
+      return withCors(await addLyricsHandler(req, db), origin);
     }
 
-    // POST /scrape - Scrape lyrics from external source
-    if (method === 'POST' && pathname === '/scrape') {
-      const resp = await scrapeLyricsHandler(req, db);
-      return withCors(resp, origin);
+    if (method === "POST" && pathname === "/scrape") {
+      return withCors(await scrapeLyricsHandler(req, db), origin);
     }
 
-    // Not found (404)
-    const resp = new Response(
-      JSON.stringify({ error: "Endpoint not found", path: pathname, method }),
-      { status: 404, headers: { "Content-Type": "application/json" } }
-    );
-    return withCors(resp, origin);
+    // Fallback for unknown endpoints
+    return withCors(new Response(JSON.stringify({
+      error: "Not found",
+      method,
+      path: pathname
+    }), { status: 404, headers: { "Content-Type": "application/json" } }), origin);
 
-  } catch (error) {
-    console.error('Router error:', error);
-    const resp = new Response(
-      JSON.stringify({ 
-        error: "Internal server error", 
-        detail: error.message,
-        path: pathname,
-        method 
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
-    return withCors(resp, origin);
+  } catch (err) {
+    console.error("Router error:", err);
+    return withCors(new Response(JSON.stringify({
+      error: "Internal server error",
+      detail: err.message
+    }), { status: 500, headers: { "Content-Type": "application/json" } }), origin);
   }
 }

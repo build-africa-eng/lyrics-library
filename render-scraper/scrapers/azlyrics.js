@@ -13,10 +13,10 @@ export async function scrapeAZLyrics(url) {
     const html = await res.text();
     const $ = cheerio.load(html);
 
-    // Extract lyrics (robust fallback if structure changes)
+    // Extract lyrics
     let lyrics = $('div[class*="ringtone"] + div').text().trim();
 
-    // Fallback (rare cases)
+    // Fallback: longest <div> without class
     if (!lyrics) {
       lyrics = $('div:not([class])').filter(function () {
         return $(this).text().length > 100;
@@ -26,22 +26,24 @@ export async function scrapeAZLyrics(url) {
     if (!lyrics) throw new Error('Lyrics not found');
 
     // Extract title
-    const title = $('h1').text().replace(' Lyrics', '').trim();
-    if (!title) throw new Error('Title not found');
+    const title = $('div.lyricsh h1').text().replace(' Lyrics', '').trim()
+      || $('title').text().split('-')[1]?.trim();
 
-    // Extract artist from .lyricsh h2 > b
-    const artist = $('.lyricsh h2 b').text().replace(' Lyrics', '').trim();
-    if (!artist) throw new Error('Artist not found');
+    // Extract artist
+    const artist = $('.lyricsh > h2 > b').text().replace(' Lyrics', '').trim()
+      || $('title').text().split('-')[0]?.trim();
+
+    if (!title || !artist) throw new Error('Title or artist not found');
 
     return {
       title,
       artist,
-      lyrics: lyrics.replace(/\r?\n\s*\r?\n/g, '\n\n'), // normalize blank lines
+      lyrics: lyrics.replace(/\r?\n\s*\r?\n/g, '\n\n'),
       source_url: url,
       source: 'azlyrics',
     };
   } catch (error) {
     console.error(`AZLyrics scrape failed for ${url}:`, error.message);
-    return null;
+    throw new Error(`AZLyrics error: ${error.message}`);
   }
 }

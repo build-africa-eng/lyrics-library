@@ -1,68 +1,100 @@
-import { Menu } from 'lucide-react';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/cn';
-import Logo from '@/components/Logo';
+import { Menu, Sun, Moon } from 'lucide-react';
+import Logo from './Logo';
 
 export default function Navbar() {
-  const [open, setOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
 
   const links = [
-    { name: 'Home', href: '/' },
-    { name: 'About', href: '/about' },
-    { name: 'Title', href: '/title' },
+    { name: 'Home', to: '/' },
+    { name: 'Library', to: '/library' },
+    { name: 'About', to: '/about' },
+    { name: 'Settings', to: '/settings' },
   ];
 
   return (
-    <header
+    <nav
       className={cn(
-        'w-full px-4 py-3 border-b border-gray-200 dark:border-gray-800',
-        'bg-white dark:bg-gray-950'
+        'flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800',
+        'bg-white dark:bg-gray-900'
       )}
     >
-      <div className="max-w-6xl mx-auto flex items-center justify-between">
-        <Logo />
-        <nav className={cn('hidden md:flex items-center gap-4 text-base')}>
-          {links.map((link) => (
-            <Link
-              key={link.name}
-              to={link.href}
-              className={cn(
-                'text-gray-700 dark:text-gray-200',
-                'hover:text-blue-600 dark:hover:text-blue-400 transition-colors'
-              )}
-            >
-              {link.name}
-            </Link>
-          ))}
-        </nav>
-
+      <div className="flex items-center gap-2">
         <button
-          onClick={() => setOpen(!open)}
+          onClick={() => setMenuOpen(!menuOpen)}
           className="md:hidden text-gray-600 dark:text-gray-300"
           aria-label="Toggle menu"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="w-5 h-5" />
+        </button>
+        <Logo />
+      </div>
+
+      <div className="hidden md:flex items-center gap-4">
+        {links.map(({ name, to }) => (
+          <NavLink
+            key={name}
+            to={to}
+            className={({ isActive }) =>
+              cn(
+                'px-3 py-2 text-gray-700 dark:text-gray-200',
+                'hover:text-blue-600 dark:hover:text-blue-400',
+                isActive && 'font-medium text-blue-600 dark:text-blue-400'
+              )
+            }
+          >
+            {name}
+          </NavLink>
+        ))}
+        <button
+          onClick={() => setDarkMode(!darkMode)}
+          className="text-gray-600 dark:text-gray-300"
+          aria-label="Toggle dark mode"
+        >
+          {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
       </div>
 
-      {open && (
-        <div className="md:hidden mt-2 space-y-2 px-4 pb-3 text-sm">
-          {links.map((link) => (
-            <Link
-              key={link.name}
-              to={link.href}
-              onClick={() => setOpen(false)}
-              className={cn(
-                'block text-gray-700 dark:text-gray-200',
-                'hover:text-blue-600 dark:hover:text-blue-400'
-              )}
+      {menuOpen && (
+        <div
+          className="md:hidden absolute top-16 left-0 w-full bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 p-4 z-10"
+        >
+          {links.map(({ name, to }) => (
+            <NavLink
+              key={name}
+              to={to}
+              onClick={() => setMenuOpen(false)}
+              className={({ isActive }) =>
+                cn(
+                  'block py-2 text-gray-700 dark:text-gray-200',
+                  'hover:text-blue-600 dark:hover:text-blue-400',
+                  isActive && 'font-medium text-blue-600 dark:text-blue-400'
+                )
+              }
             >
-              {link.name}
-            </Link>
+              {name}
+            </NavLink>
           ))}
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className="w-full text-left py-2 text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400"
+            aria-label="Toggle dark mode"
+          >
+            {darkMode ? 'Light Mode' : 'Dark Mode'}
+          </button>
         </div>
       )}
-    </header>
+    </nav>
   );
 }

@@ -2,27 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base styles */
-body {
-  @apply bg-white text-gray-900 font-sans;
+@layer base {
+  /* Base styles */
+  body {
+    @apply bg-white text-gray-900 font-sans;
+  }
+
+  /* Dark mode support */
+  .dark body {
+    @apply bg-gray-900 text-gray-100;
+  }
+
+  /* Scrollbar styles (non-standard Tailwind utilities) */
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 rounded-full;
+  }
 }
 
-/* Dark mode support */
-.dark body {
-  @apply bg-gray-900 text-gray-100;
-}
-
-/* Scrollbar styles */
+/* Non-Tailwind custom properties are still fine outside layers */
 ::-webkit-scrollbar {
   width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-gray-100;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-gray-400 rounded-full;
 }
 
 * {

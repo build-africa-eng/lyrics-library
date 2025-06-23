@@ -1,10 +1,10 @@
 import { Routes, Route } from 'react-router-dom';
 import { LyricsProvider } from '@/context/LyricsContext';
-import Home from './Home';
-import Library from './Library';
-import About from './About';
-import NotFound from './NotFound';
-import Settings from './Settings';
+import Home from './pages/Home';
+import Library from './pages/Library';
+import About from './pages/About';
+import NotFound from './pages/NotFound';
+import Settings from './pages/Settings';
 
 function App() {
   return (

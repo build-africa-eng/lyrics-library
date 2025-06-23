@@ -1,3 +1,4 @@
+// src/context/LyricsContext.jsx
 import { createContext, useContext, useState, useCallback } from 'react';
 import * as api from '@/utils/api';
 
@@ -9,17 +10,16 @@ export function LyricsProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const searchLyrics = useCallback(async (query) => {
+  /**
+   * Search lyrics by query.
+   * If not found, falls back to scraping using provided URL.
+   */
+  const searchLyrics = useCallback(async (query, scrapeUrl = null) => {
     setLoading(true);
     setError(null);
     try {
-      if (!query) {
-        const data = await api.fetchAllLyrics();
-        setLyricsList(Array.isArray(data.lyrics) ? data.lyrics : []);
-      } else {
-        const data = await api.fetchLyrics(query);
-        setLyricsList(data.lyrics ? data.lyrics : [data]);
-      }
+      const data = await api.fetchLyricsWithFallback(query, scrapeUrl);
+      setLyricsList(data.lyrics ? data.lyrics : [data]);
     } catch (err) {
       setError(err.message);
       setLyricsList([]);
@@ -28,6 +28,9 @@ export function LyricsProvider({ children }) {
     }
   }, []);
 
+  /**
+   * Manually add new lyrics to the database.
+   */
   const addLyrics = useCallback(async (newLyricData) => {
     setLoading(true);
     setError(null);
@@ -47,7 +50,7 @@ export function LyricsProvider({ children }) {
     error,
     searchTerm,
     setSearchTerm,
-    searchLyrics,
+    searchLyrics, // takes query, optional scrape URL
     addLyrics,
   };
 

@@ -11,10 +11,17 @@ export default function SearchForm() {
 
   const handleSearch = async (e) => {
     e.preventDefault();
+
     if (!artist || !title) return;
 
-    const query = `${artist} ${title}`;
-    await searchLyrics(query, url || null); // Pass scrape URL fallback if provided
+    const query = `${artist} ${title}`.trim();
+
+    // If a custom URL is provided, use it; else fallback to Google search with site restriction
+    const scrapeUrl = url.trim()
+      ? url.trim()
+      : `https://www.google.com/search?q=${encodeURIComponent(query)}+site:azlyrics.com`;
+
+    await searchLyrics(query, scrapeUrl);
   };
 
   return (
@@ -30,7 +37,7 @@ export default function SearchForm() {
         onChange={(e) => setTitle(e.target.value)}
       />
       <Input
-        placeholder="Optional lyrics source URL (e.g. Genius.com)"
+        placeholder="Optional lyrics source URL (e.g. https://genius.com/...)"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
       />

@@ -1,4 +1,5 @@
-// src/lib/lyricsDb.js
+import { normalizeQuery } from '../utils/normalize.js';
+
 export async function getLyricsByTitleAndArtist(db, title, artist) {
   const result = await db.prepare(
     `SELECT title, artist, lyrics FROM lyrics WHERE title = ? AND artist = ? LIMIT 1`
@@ -8,7 +9,9 @@ export async function getLyricsByTitleAndArtist(db, title, artist) {
 }
 
 export async function saveLyrics(db, { title, artist, lyrics }) {
+  const query = normalizeQuery(`${title} ${artist}`);
+
   await db.prepare(
-    `INSERT INTO lyrics (title, artist, lyrics) VALUES (?, ?, ?)`
-  ).bind(title, artist, lyrics).run();
+    `INSERT INTO lyrics (query, title, artist, lyrics) VALUES (?, ?, ?, ?)`
+  ).bind(query, title, artist, lyrics).run();
 }

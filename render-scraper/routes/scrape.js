@@ -7,12 +7,12 @@ import { scrapeLyricsCom } from '../scrapers/lyricscom.js';
 
 const router = express.Router();
 
+// Tries direct search → fallback search → hardcoded Genius URL format
 const searchAndScrape = async (query) => {
   const searchQuery = encodeURIComponent(`${query} site:genius.com OR site:azlyrics.com OR site:lyrics.com`);
   const searchUrl = `https://www.google.com/search?q=${searchQuery}`;
   const headers = {
-    'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0',
   };
 
   const { data: html } = await axios.get(searchUrl, { headers });
@@ -22,57 +22,59 @@ const searchAndScrape = async (query) => {
   $('a').each((_, el) => {
     const href = $(el).attr('href');
     if (href?.includes('/url?q=')) {
-      const cleanUrl = decodeURIComponent(href.split('/url?q=')[1].split('&')[0]);
+      const url = decodeURIComponent(href.split('/url?q=')[1].split('&')[0]);
       if (
-        (cleanUrl.includes('genius.com') ||
-          cleanUrl.includes('azlyrics.com') ||
-          cleanUrl.includes('lyrics.com')) &&
-        !cleanUrl.includes('google')
+        (url.includes('genius.com') || url.includes('azlyrics.com') || url.includes('lyrics.com')) &&
+        !url.includes('google')
       ) {
-        links.push(cleanUrl);
+        links.push(url);
       }
     }
   });
 
-  if (links.length === 0) throw new Error('No lyrics sources found.');
+  for (const link of links) {
+    try {
+      if (link.includes('genius.com')) return await scrapeGenius(link);
+      if (link.includes('azlyrics.com')) return await scrapeAZLyrics(link);
+      if (link.includes('lyrics.com')) return await scrapeLyricsCom(link);
+    } catch (err) {
+      console.warn(`Scrape failed for ${link}: ${err.message}`);
+    }
+  }
 
-  const topLink = links[0];
-  if (topLink.includes('genius.com')) return await scrapeGenius(topLink);
-  if (topLink.includes('azlyrics.com')) return await scrapeAZLyrics(topLink);
-  if (topLink.includes('lyrics.com')) return await scrapeLyricsCom(topLink);
-
-  throw new Error('Unsupported lyrics source in Google result.');
+  // Final fallback: Try generating Genius URL
+  const slug = query.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
+  const fallbackUrl = `https://genius.com/${slug}-lyrics`;
+  try {
+    const fallbackResult = await scrapeGenius(fallbackUrl);
+    return fallbackResult;
+  } catch (err) {
+    throw new Error('All scrape attempts failed.');
+  }
 };
 
-// POST /scrape — used by Cloudflare Worker or frontend
+// POST /scrape (JSON body)
 router.post('/', async (req, res) => {
   const { url, query } = req.body;
-
-  if (!url && !query) {
-    return res.status(400).json({ error: 'Missing required field: url or query' });
-  }
+  if (!url && !query) return res.status(400).json({ error: 'Missing query or url.' });
 
   try {
     if (url) {
       if (url.includes('genius.com')) return res.json(await scrapeGenius(url));
       if (url.includes('azlyrics.com')) return res.json(await scrapeAZLyrics(url));
       if (url.includes('lyrics.com')) return res.json(await scrapeLyricsCom(url));
-      return res.status(400).json({ error: 'Unsupported lyrics source URL' });
+      return res.status(400).json({ error: 'Unsupported URL' });
     }
 
-    if (query) {
-      const result = await searchAndScrape(query);
-      return res.json(result);
-    }
-
-    return res.status(400).json({ error: 'Invalid request' });
+    const result = await searchAndScrape(query);
+    return res.json(result);
   } catch (err) {
-    console.error('POST /scrape error:', err.message);
+    console.error(`POST /scrape error: ${err.message}`);
     return res.status(500).json({ error: err.message });
   }
 });
 
-// GET /scrape — for manual test or dev use
+// GET /scrape?query=... or /scrape?url=...&source=...
 router.get('/', async (req, res) => {
   const { query, url, source } = req.query;
 
@@ -80,8 +82,8 @@ router.get('/', async (req, res) => {
     try {
       if (source === 'genius') return res.json(await scrapeGenius(url));
       if (source === 'azlyrics') return res.json(await scrapeAZLyrics(url));
-      if (source === 'lyricscom' || source === 'lyrics.com') return res.json(await scrapeLyricsCom(url));
-      return res.status(400).json({ error: 'Unsupported source. Use genius, azlyrics, or lyricscom.' });
+      if (source === 'lyricscom') return res.json(await scrapeLyricsCom(url));
+      return res.status(400).json({ error: 'Unsupported source param' });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -92,12 +94,12 @@ router.get('/', async (req, res) => {
       const result = await searchAndScrape(query);
       return res.json(result);
     } catch (err) {
-      console.error('GET /scrape query error:', err.message);
+      console.error(`GET /scrape query error: ${err.message}`);
       return res.status(500).json({ error: err.message });
     }
   }
 
-  return res.status(400).json({ error: 'Missing ?query= or ?url= and ?source=' });
+  return res.status(400).json({ error: 'Missing query or url+source' });
 });
 
 export default router;

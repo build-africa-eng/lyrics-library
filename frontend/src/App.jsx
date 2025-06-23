@@ -1,28 +1,24 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import AppLayout from './components/AppLayout'; // Import the new layout
-import Home from './pages/Home';
-import Library from '@/pages/Library';
-import Settings from '@/components/Settings';
-import NotFound from '@/pages/NotFound';
-import About from '@/pages/About';
-// ... import other components
+import { LyricsProvider } from '@/context/LyricsContext';
+import Home from './Home';
+import Library from './Library';
+import About from './About';
+import NotFound from './NotFound';
+import Settings from './Settings';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* All routes inside AppLayout will share the same Header and structure */}
-        <Route element={<AppLayout />}>
+    <LyricsProvider>
+      <BrowserRouter>
+        <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/library" element={<Library />} />
+          <Route path="/about" element={<About />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/About" element={<About />} />
-        </Route>
-        
-        {/* A route for a page that SHOULDN'T have the main layout, like a 404 page */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </LyricsProvider>
   );
 }
 

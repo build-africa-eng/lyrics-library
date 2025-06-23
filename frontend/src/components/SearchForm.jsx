@@ -6,14 +6,15 @@ import { useLyrics } from '@/context/LyricsContext';
 export default function SearchForm() {
   const [artist, setArtist] = useState('');
   const [title, setTitle] = useState('');
+  const [url, setUrl] = useState('');
   const { searchLyrics, loading, error } = useLyrics();
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!artist || !title) {
-      return;
-    }
-    await searchLyrics(`${artist} ${title}`);
+    if (!artist || !title) return;
+
+    const query = `${artist} ${title}`;
+    await searchLyrics(query, url || null); // Pass scrape URL fallback if provided
   };
 
   return (
@@ -27,6 +28,11 @@ export default function SearchForm() {
         placeholder="Title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
+      />
+      <Input
+        placeholder="Optional lyrics source URL (e.g. Genius.com)"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
       />
       <Button type="submit" disabled={loading}>
         {loading ? 'Searching...' : 'Search'}

@@ -1,12 +1,7 @@
-// Corrected the typo in the worker URL
 const BASE_URL = 'https://lyrics-worker.afrcanfuture.workers.dev';
 
 export function normalizeQuery(str) {
-  return str
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return str.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
 }
 
 export async function fetchLyrics(query) {
@@ -33,7 +28,6 @@ export async function addLyrics({ title, artist, lyrics }) {
 }
 
 export async function scrapeLyrics(url) {
-  // The path is already correct here, matching our router fix
   const res = await fetch(`${BASE_URL}/scrape`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

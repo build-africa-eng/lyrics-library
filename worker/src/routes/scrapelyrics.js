@@ -1,7 +1,6 @@
-// /worker/src/routes/scrapelyrics.js
-import { normalizeQuery } from "../utils/normalize";
+import { normalizeQuery } from "../utils/normalize.js";
 
-const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
+const MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
 export async function scrapeLyrics(req, db) {
   try {
@@ -18,7 +17,6 @@ export async function scrapeLyrics(req, db) {
     let normalizedQuery = overrideQuery ? normalizeQuery(overrideQuery) : null;
     const now = Math.floor(Date.now() / 1000);
 
-    // 1. Check cache
     if (normalizedQuery) {
       const cached = await db.prepare(
         `SELECT * FROM lyrics WHERE query = ? AND created_at >= ?`
@@ -27,15 +25,11 @@ export async function scrapeLyrics(req, db) {
       if (cached) {
         return new Response(JSON.stringify({ cached: true, ...cached }), {
           status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "X-Cache": "HIT"
-          }
+          headers: { "Content-Type": "application/json", "X-Cache": "HIT" }
         });
       }
     }
 
-    // 2. Scrape from backend
     const res = await fetch("https://lyrics-library-hnz7.onrender.com/scrape", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -43,15 +37,14 @@ export async function scrapeLyrics(req, db) {
     });
 
     if (!res.ok) {
-      const errorText = await res.text();
-      return new Response(JSON.stringify({ error: "Scrape failed", detail: errorText }), {
+      const errText = await res.text();
+      return new Response(JSON.stringify({ error: "Scrape failed", detail: errText }), {
         status: 500,
         headers: { "Content-Type": "application/json" }
       });
     }
 
     const scraped = await res.json();
-
     if (!normalizedQuery && scraped.title && scraped.artist) {
       normalizedQuery = normalizeQuery(`${scraped.title} ${scraped.artist}`);
     }
@@ -64,7 +57,8 @@ export async function scrapeLyrics(req, db) {
     }
 
     await db.prepare(`
-      INSERT OR REPLACE INTO lyrics (query, title, artist, lyrics, source_url, created_at)
+      INSERT OR REPLACE INTO lyrics 
+      (query, title, artist, lyrics, source_url, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
       normalizedQuery,
@@ -77,11 +71,9 @@ export async function scrapeLyrics(req, db) {
 
     return new Response(JSON.stringify({ cached: false, ...scraped }), {
       status: 201,
-      headers: {
-        "Content-Type": "application/json",
-        "X-Cache": "MISS"
-      }
+      headers: { "Content-Type": "application/json", "X-Cache": "MISS" }
     });
+
   } catch (err) {
     return new Response(JSON.stringify({ error: "Unexpected error", detail: err.message }), {
       status: 500,

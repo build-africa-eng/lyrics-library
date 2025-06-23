@@ -2,34 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base styling using Tailwind's @layer */
 @layer base {
   body {
-    @apply text-gray-900 bg-white;
+    background-color: theme('colors.white');
+    color: theme('colors.gray.900');
     font-family: theme('fontFamily.sans');
   }
 
   .dark body {
-    @apply text-gray-100 bg-gray-900;
+    background-color: theme('colors.gray.900');
+    color: theme('colors.gray.100');
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-gray-100;
+    background-color: theme('colors.gray.100');
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-400 rounded-full;
+    background-color: theme('colors.gray.400');
+    border-radius: 9999px; /* rounded-full */
   }
 }
 
-/* WebKit scrollbar width (not supported by Tailwind, so plain CSS) */
+/* Native CSS for scrollbar width */
 ::-webkit-scrollbar {
   width: 6px;
 }
 
-/* Firefox scrollbar styling (not Tailwind either) */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #71717a #f4f4f5; /* gray-500 thumb on gray-100 track */
+  scrollbar-color: #71717a #f4f4f5;
 }
-

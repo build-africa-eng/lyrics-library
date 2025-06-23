@@ -1,4 +1,3 @@
-// src/context/LyricsContext.jsx
 import { createContext, useContext, useState, useCallback } from 'react';
 import * as api from '@/utils/api';
 
@@ -10,16 +9,23 @@ export function LyricsProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  /**
-   * Search lyrics by query.
-   * If not found, falls back to scraping using provided URL.
-   */
-  const searchLyrics = useCallback(async (query, scrapeUrl = null) => {
+  const searchLyrics = useCallback(async (query) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.fetchLyricsWithFallback(query, scrapeUrl);
-      setLyricsList(data.lyrics ? data.lyrics : [data]);
+      const data = await api.fetchLyrics(query);
+
+      // If backend returns an array (all lyrics) or a found match
+      if (Array.isArray(data.lyrics)) {
+        setLyricsList(data.lyrics);
+      } else if (data.found) {
+        setLyricsList([data]);
+      } else {
+        // Not found: fallback to scrape
+        const scrapeUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}+site:azlyrics.com`;
+        const scraped = await api.scrapeLyrics(scrapeUrl);
+        setLyricsList([scraped]);
+      }
     } catch (err) {
       setError(err.message);
       setLyricsList([]);
@@ -28,9 +34,6 @@ export function LyricsProvider({ children }) {
     }
   }, []);
 
-  /**
-   * Manually add new lyrics to the database.
-   */
   const addLyrics = useCallback(async (newLyricData) => {
     setLoading(true);
     setError(null);
@@ -50,7 +53,7 @@ export function LyricsProvider({ children }) {
     error,
     searchTerm,
     setSearchTerm,
-    searchLyrics, // takes query, optional scrape URL
+    searchLyrics,
     addLyrics,
   };
 

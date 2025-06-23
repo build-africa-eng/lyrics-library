@@ -2,33 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base styles (valid Tailwind + safe fallback for Tailwind v3) */
-body {
-  @apply font-sans; /* Apply Inter font from tailwind.config.js */
-  background-color: white;
-  color: #111827; /* Tailwind gray-900 */
+/* Base styling using Tailwind's @layer */
+@layer base {
+  body {
+    @apply text-gray-900 bg-white;
+    font-family: theme('fontFamily.sans');
+  }
+
+  .dark body {
+    @apply text-gray-100 bg-gray-900;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 rounded-full;
+  }
 }
 
-/* Dark mode styles using the .dark class (no @apply here for v3 safety) */
-body.dark {
-  background-color: #111827; /* Tailwind gray-900 */
-  color: #f3f4f6;             /* Tailwind gray-100 */
-}
-
-/* Scrollbar styles — WebKit only (non-Tailwind but safe in v3) */
+/* WebKit scrollbar width (not supported by Tailwind, so plain CSS) */
 ::-webkit-scrollbar {
   width: 6px;
 }
-::-webkit-scrollbar-track {
-  background-color: #f3f4f6; /* Tailwind gray-100 */
-}
-::-webkit-scrollbar-thumb {
-  background-color: #9ca3af; /* Tailwind gray-400 */
-  border-radius: 9999px;
-}
 
-/* Firefox scrollbar style */
+/* Firefox scrollbar styling (not Tailwind either) */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #71717a #f4f4f5; /* gray-500 on gray-100 */
+  scrollbar-color: #71717a #f4f4f5; /* gray-500 thumb on gray-100 track */
 }
+

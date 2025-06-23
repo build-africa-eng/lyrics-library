@@ -4,15 +4,24 @@
 @tailwind utilities;
 
 @layer base {
+  /* Light Mode Defaults */
   body {
     @apply bg-white text-gray-900 font-sans;
   }
 
+  /* Dark Mode */
   .dark body {
     @apply bg-gray-900 text-gray-100;
   }
 
-  /* Tailwind-based scrollbar styles (inside layer for safety) */
+  /* == SCROLLBAR STYLES == */
+
+  /* Webkit-based browsers (Chrome, Safari, Edge) */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  /* Light Mode Scrollbar */
   ::-webkit-scrollbar-track {
     @apply bg-gray-100;
   }
@@ -20,14 +29,25 @@
   ::-webkit-scrollbar-thumb {
     @apply bg-gray-400 rounded-full;
   }
+
+  /* Dark Mode Scrollbar */
+  .dark ::-webkit-scrollbar-track {
+    @apply bg-gray-800;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    @apply bg-gray-600 rounded-full;
+  }
 }
 
-/* These styles are native and safe outside @layer */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
+/* Firefox scrollbar styling */
 * {
+  /* Using theme() to ensure colors match Tailwind config */
+  scrollbar-color: theme('colors.gray.400') theme('colors.gray.100');
   scrollbar-width: thin;
-  scrollbar-color: #71717a #f4f4f5;
+}
+
+/* Dark Mode Firefox */
+.dark * {
+  scrollbar-color: theme('colors.gray.600') theme('colors.gray.800');
 }

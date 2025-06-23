@@ -2,7 +2,7 @@ import Navbar from '@/components/Navbar';
 import SearchBar from '@/components/SearchBar';
 import LyricsDisplay from '@/components/LyricsDisplay';
 import Upload from '@/components/Upload';
-import SearchForm from './components/SearchForm';
+import SearchForm from '@/components/SearchForm';
 import { useLyrics } from '@/context/LyricsContext';
 import { useState } from 'react';
 import { normalizeQuery } from '@/utils/api';

@@ -1,50 +1,31 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-  /* Define your project's color palette as CSS variables. */
-  --color-zinc-100: #f4f4f5;
-  --color-zinc-400: #a1a1aa;
-  --color-zinc-900: #18181b;
-
-  /*
-   * **[CRITICAL FIX]** You must define a default font family
-   * for text to render correctly. This uses the standard system font stack.
-   */
-  --font-family-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+/* Base styles */
+body {
+  @apply bg-white text-gray-900 font-sans;
 }
 
-/*
- * [REMOVED] The conflicting `body` styles have been removed.
- * Your HTML's `<body class="bg-neutral-950 text-white">` now correctly
- * controls the background and text color without any conflict.
- *
- * We also removed the `@media (prefers-color-scheme: dark)` block
- * because you are setting the dark theme directly in the HTML.
- */
-
-/* Apply a base font to the entire document */
-html {
-  font-family: var(--font-family-sans);
+/* Dark mode support */
+.dark body {
+  @apply bg-gray-900 text-gray-100;
 }
 
-
-/* Scrollbar styles (updated to use CSS variables) */
-/* WebKit (Chrome, Safari, Edge) */
+/* Scrollbar styles */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background-color: var(--color-zinc-900); /* Dark track */
+  @apply bg-gray-100;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--color-zinc-400); /* Lighter thumb */
-  border-radius: 9999px;
+  @apply bg-gray-400 rounded-full;
 }
 
-/* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-zinc-400) var(--color-zinc-900);
+  scrollbar-color: #71717a #f4f4f5;
 }

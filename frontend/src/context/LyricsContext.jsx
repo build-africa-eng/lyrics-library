@@ -15,11 +15,10 @@ export function LyricsProvider({ children }) {
     try {
       if (!query) {
         const data = await api.fetchAllLyrics();
-        setLyricsList(Array.isArray(data) ? data : []);
+        setLyricsList(Array.isArray(data.lyrics) ? data.lyrics : []);
       } else {
         const data = await api.fetchLyrics(query);
-        // Ensure result is always an array for consistent state
-        setLyricsList(Array.isArray(data) ? data : (data ? [data] : []));
+        setLyricsList(data.lyrics ? data.lyrics : [data]);
       }
     } catch (err) {
       setError(err.message);
@@ -29,14 +28,11 @@ export function LyricsProvider({ children }) {
     }
   }, []);
 
-  // Improved logic: avoids a second network call
   const addLyrics = useCallback(async (newLyricData) => {
     setLoading(true);
     setError(null);
     try {
-      // The API should return the newly created lyric object
       const addedLyric = await api.addLyrics(newLyricData);
-      // Add the new lyric to the existing list in state
       setLyricsList((prevList) => [addedLyric, ...prevList]);
     } catch (err) {
       setError(err.message);

@@ -4,35 +4,44 @@
 @tailwind utilities;
 
 @layer base {
-  /* ... your body styles remain the same ... */
+  :root {
+    --scrollbar-track-light: #f4f4f5;
+    --scrollbar-thumb-light: #a1a1aa;
+    --scrollbar-track-dark: #27272a;
+    --scrollbar-thumb-dark: #52525b;
+  }
+
   body {
     @apply bg-white text-gray-900 font-sans;
   }
   .dark body {
     @apply bg-gray-900 text-gray-100;
   }
-
+  
   /* == SCROLLBAR STYLES (WEBKIT) == */
   ::-webkit-scrollbar {
     width: 6px;
   }
-  /* Using @apply is fine here as it worked in your build */
-  ::-webkit-scrollbar-track { @apply bg-zinc-100; }
-  ::-webkit-scrollbar-thumb { @apply bg-zinc-400 rounded-full; }
-  .dark ::-webkit-scrollbar-track { @apply bg-zinc-800; }
-  .dark ::-webkit-scrollbar-thumb { @apply bg-zinc-600 rounded-full; }
+  ::-webkit-scrollbar-track { 
+    @apply bg-gray-100; 
+  }
+  ::-webkit-scrollbar-thumb { 
+    @apply bg-gray-400 rounded-full; 
+  }
+  .dark ::-webkit-scrollbar-track { 
+    @apply bg-gray-800; 
+  }
+  .dark ::-webkit-scrollbar-thumb { 
+    @apply bg-gray-600 rounded-full; 
+  }
 }
 
 /* == SCROLLBAR STYLES (FIREFOX) == */
-/* Using theme() with `zinc` for better build stability */
-
-/* Light Mode Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: theme('colors.zinc.400') theme('colors.zinc.100');
+  scrollbar-color: var(--scrollbar-thumb-light) var(--scrollbar-track-light);
 }
 
-/* Dark Mode Firefox */
 .dark * {
-  scrollbar-color: theme('colors.zinc.600') theme('colors.zinc.800');
+  scrollbar-color: var(--scrollbar-thumb-dark) var(--scrollbar-track-dark);
 }

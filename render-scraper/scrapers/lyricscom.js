@@ -1,16 +1,24 @@
-import puppeteer from "puppeteer";
+// scrapers/scrapeLyricsCom.js
+
+import { getBrowser } from '../browserManager.js';
 
 export async function scrapeLyricsCom(url) {
-  const browser = await puppeteer.launch({ headless: 'new' });
+  const browser = getBrowser();
   const page = await browser.newPage();
-
   try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
-    const data = await page.evaluate(() => {
-      const title = document.querySelector("h1")?.textContent?.trim();
-      const artist = document.querySelector("h3 a")?.textContent?.trim();
-      const lyrics = document.querySelector(".lyric-body")?.innerText?.trim();
+    const lyricsSelector = '#lyric-body-text';
+    await page.waitForSelector(lyricsSelector, { timeout: 15000 });
+
+    const data = await page.evaluate((selector) => {
+      const lyricsBody = document.querySelector(selector);
+      if (!lyricsBody) return null;
+
+      const lyrics = lyricsBody.innerText;
+      const title = document.querySelector("h1.lyric-title")?.innerText?.trim();
+      const artist = document.querySelector("h3.lyric-artist a")?.innerText?.trim();
 
       return {
         title,
@@ -19,17 +27,15 @@ export async function scrapeLyricsCom(url) {
         source_url: location.href,
         source: 'lyricscom',
       };
-    });
+    }, lyricsSelector);
 
-    if (!data.lyrics || !data.title || !data.artist) {
-      throw new Error("Incomplete scrape result from Lyrics.com");
+    if (!data?.lyrics || !data?.title || !data?.artist) {
+      throw new Error("Incomplete scrape: Could not find title, artist, or lyrics.");
     }
-
     return data;
   } catch (err) {
-    console.error("Lyrics.com scrape failed:", err.message);
-    throw new Error(`Lyrics.com error: ${err.message}`);
+    throw new Error(`Lyrics.com scrape failed for URL ${url}: ${err.message}`);
   } finally {
-    await browser.close();
+    await page.close();
   }
 }

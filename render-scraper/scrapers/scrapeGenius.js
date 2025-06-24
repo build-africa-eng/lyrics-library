@@ -1,11 +1,12 @@
 import fs from 'fs/promises';
 import { getBrowser } from './browserManager.js';
-import sanitizeUrl from '../utils/sanitizeUrl.js'; // This import is correct
+import sanitizeUrl from '../utils/sanitizeUrl.js';
+// Optional WebSocket logger
+import { sendWsMessage } from '../utils/wsLogger.js'; // if using WS
 
 export async function scrapeGenius(inputUrl, retries = 2) {
   const url = sanitizeUrl(inputUrl);
   if (!url) {
-    // SanitizeUrl can return '', so we stop here if the URL is invalid.
     throw new Error(`Invalid or unsupported URL provided to scrapeGenius: ${inputUrl}`);
   }
 
@@ -13,87 +14,80 @@ export async function scrapeGenius(inputUrl, retries = 2) {
   const page = await browser.newPage();
 
   try {
-    // 1. Use a more modern and common User-Agent
     await page.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
     );
 
     await page.goto(url, {
       waitUntil: 'domcontentloaded',
-      timeout: 90000, // Increased global timeout
+      timeout: 90000,
     });
 
-    // 2. Add a check for Cloudflare/CAPTCHA challenges
+    // 🔍 CAPTCHA / Cloudflare detection
     const isChallenge = await page.evaluate(() =>
-        document.body.innerText.includes("Verifying you are human") || document.title.includes("Just a moment...")
+      document.body.innerText.includes("Verifying you are human") ||
+      document.title.includes("Just a moment...") ||
+      document.querySelector('iframe[src*="captcha"]')
     );
     if (isChallenge) {
-        console.warn("🤖 Genius is presenting a CAPTCHA/challenge page.");
-        // Wait for potential automatic redirection after challenge solves
-        await page.waitForNavigation({ timeout: 25000 }).catch(() => console.log("Timeout waiting for challenge navigation."));
+      const message = '🤖 CAPTCHA detected — skipping further retries due to zero-cost constraint.';
+      console.warn(message);
+      await fs.writeFile(`/tmp/genius-captcha-${Date.now()}.html`, await page.content());
+      sendWsMessage?.('log', message); // optional
+      throw new Error("Blocked by CAPTCHA. Cannot bypass without paid API.");
     }
 
-    // 3. Handle Cookie Consent Banners (add this block)
+    // ✅ Cookie consent
     try {
-      const consentButtonSelector = 'button[id="onetrust-accept-btn-handler"]';
-      await page.waitForSelector(consentButtonSelector, { timeout: 7000 });
-      await page.click(consentButtonSelector);
-      console.log('✅ Clicked cookie consent button.');
-    } catch (e) {
-      console.log('ℹ️ Cookie consent banner not found or already accepted.');
+      const consentButton = 'button[id="onetrust-accept-btn-handler"]';
+      await page.waitForSelector(consentButton, { timeout: 7000 });
+      await page.click(consentButton);
+      console.log('✅ Cookie consent accepted.');
+    } catch {
+      console.log('ℹ️ No cookie banner found.');
     }
 
-    // Check for "Page Not Found" after handling potential overlays
     const isNotFound = await page.evaluate(() =>
       document.body.innerText.includes("Page not found")
     );
-    if (isNotFound) {
-      throw new Error("❌ Genius 404 - Page not found");
-    }
+    if (isNotFound) throw new Error("❌ Genius 404 - Page not found");
 
-    // 4. Update Selectors and increase wait timeout
+    // 🎯 Try known lyrics selectors
     const selectors = [
-      'div[data-lyrics-container="true"]', // Primary modern selector
-      '[class^="Lyrics__Container-"]',      // Styled-components class selector
-      'div.lyrics'                           // Legacy selector
+      'div[data-lyrics-container="true"]',
+      '[class^="Lyrics__Container-"]',
+      'div.lyrics'
     ];
     let foundSelector = null;
-
     for (const selector of selectors) {
       try {
-        await page.waitForSelector(selector, { timeout: 15000 }); // Increased timeout
+        await page.waitForSelector(selector, { timeout: 15000 });
         foundSelector = selector;
         break;
       } catch {}
     }
 
     if (!foundSelector) {
-      throw new Error("❌ No known lyrics selector found on page. The page structure may have changed or is blocked.");
+      throw new Error("❌ No lyrics container found — site structure changed or blocked.");
     }
 
     const data = await page.evaluate((selector) => {
-      // Find the container and replace <br> with newlines for proper text extraction
       const container = document.querySelector(selector);
       if (!container) return null;
 
-      // Replace all <br> tags with a newline character within the container's HTML
       container.innerHTML = container.innerHTML.replace(/<br\s*\/?>/gi, '\n');
-
-      // Now, extract the innerText, which will respect the newlines
       const lyrics = container.innerText.trim();
 
-      // Scrape title and artist
-      let title = document.querySelector('h1[class*="Title"], h1[class*="SongHeader__Title"]') ?.innerText;
-      let artist = document.querySelector('a[class*="Artist"], a[class*="SongHeader__Artist"]') ?.innerText;
+      let title = document.querySelector('h1[class*="Title"], h1[class*="SongHeader__Title"]')?.innerText;
+      let artist = document.querySelector('a[class*="Artist"], a[class*="SongHeader__Artist"]')?.innerText;
 
-      // Fallback to page title if specific selectors fail
       if (!title || !artist) {
         const pageTitle = document.querySelector('title')?.textContent || '';
         const parts = pageTitle.split(' – Lyrics | Genius');
         if (parts.length > 0) {
-            const songInfo = parts[0].split(' by ');
-            artist = artist || songInfo[1]?.trim();
-            title = title || songInfo[0]?.trim();
+          const [t, a] = parts[0].split(' by ');
+          title = title || t?.trim();
+          artist = artist || a?.trim();
         }
       }
 
@@ -107,7 +101,7 @@ export async function scrapeGenius(inputUrl, retries = 2) {
     }, foundSelector);
 
     if (!data?.lyrics || !data?.title || !data?.artist) {
-      throw new Error("❌ Incomplete scrape: Missing title, artist, or lyrics.");
+      throw new Error("❌ Incomplete lyrics data.");
     }
 
     return data;
@@ -116,22 +110,20 @@ export async function scrapeGenius(inputUrl, retries = 2) {
     try {
       const screenshotPath = `/tmp/genius-error-${ts}.png`;
       const htmlPath = `/tmp/genius-error-${ts}.html`;
-      await page.screenshot({ path: screenshotPath, fullPage: true });
-      const html = await page.content();
-      await fs.writeFile(htmlPath, html);
-      console.warn(`📸 Snapshot saved: ${screenshotPath} & ${htmlPath}`);
+      await page.screenshot({ path: screenshotPath });
+      await fs.writeFile(htmlPath, await page.content());
+      console.warn(`📸 Snapshot: ${screenshotPath} & ${htmlPath}`);
     } catch (e) {
-      console.warn('⚠️ Snapshot save failed:', e.message);
+      console.warn('⚠️ Snapshot failed:', e.message);
     }
 
-    if (retries > 0) {
-      console.warn(`🔁 Retrying Genius scrape (${retries} retries left)...`);
+    if (retries > 0 && !err.message.includes('CAPTCHA')) {
+      console.warn(`🔁 Retrying scrape (${retries} left)...`);
       await page.close();
       return await scrapeGenius(url, retries - 1);
     }
 
-    // Provide a more detailed final error message
-    throw new Error(`Genius scrape failed for URL ${url} after all retries: ${err.message}`);
+    throw new Error(`Genius scrape failed for ${url}: ${err.message}`);
   } finally {
     if (!page.isClosed()) await page.close();
   }

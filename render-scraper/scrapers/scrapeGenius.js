@@ -1,6 +1,6 @@
 // scrapers/scrapeGenius.js
 
-import { getBrowser } from '../browserManager.js';
+import { getBrowser } from './browserManager.js';
 
 export async function scrapeGenius(url) {
   const browser = getBrowser();

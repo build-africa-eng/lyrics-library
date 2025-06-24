@@ -1,40 +1,37 @@
-// scrapers/scrapeGenius.js
-
 import { getBrowser } from './browserManager.js';
 
 export async function scrapeGenius(url) {
   const browser = getBrowser();
   const page = await browser.newPage();
   try {
-    // Set a realistic user agent
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-    
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36'
+    );
 
-    // This is the specific selector for the container Genius uses.
-    const lyricsSelector = 'div[data-lyrics-container="true"]';
-    await page.waitForSelector(lyricsSelector, { timeout: 15000 });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    const data = await page.evaluate((selector) => {
-      const container = document.querySelector(selector);
-      if (!container) return null;
-      
-      // Replace <br> tags with newlines for proper formatting
-      container.innerHTML = container.innerHTML.replace(/<br\s*\/?>/gi, '\n');
-      const lyrics = container.innerText;
-      
-      // Primary selectors for title and artist
-      let title = document.querySelector('h1[class^="SongHeader__Title"], h1[class^="HeaderArtistAndTracklist__Title"]')?.innerText;
-      let artist = document.querySelector('a[class^="SongHeader__Artist"], a[class^="HeaderArtistAndTracklist__Artist"]')?.innerText;
+    // Wait for the lyrics container to appear (allow longer)
+    await page.waitForSelector('div[data-lyrics-container]', { timeout: 25000 });
 
-      // Fallback to page title if primary selectors fail
+    const data = await page.evaluate(() => {
+      const containers = document.querySelectorAll('div[data-lyrics-container]');
+      const lyrics = Array.from(containers)
+        .map(div => div.innerText.trim())
+        .join('\n\n')
+        .trim();
+
+      let title = document.querySelector('h1[class^="SongHeader__Title"]')?.innerText?.trim() ||
+                  document.querySelector('h1[class^="HeaderArtistAndTracklist__Title"]')?.innerText?.trim();
+
+      let artist = document.querySelector('a[class^="SongHeader__Artist"]')?.innerText?.trim() ||
+                   document.querySelector('a[class^="HeaderArtistAndTracklist__Artist"]')?.innerText?.trim();
+
+      // Fallback via <title>
       if (!title || !artist) {
-        const pageTitle = document.querySelector('title')?.textContent;
-        if (pageTitle) {
-          const parts = pageTitle.split(' – ');
-          artist = artist || parts[0]?.trim();
-          title = title || parts[1]?.split(' Lyrics | Genius')[0]?.trim();
-        }
+        const pageTitle = document.title;
+        const parts = pageTitle.split(' – ');
+        artist = artist || parts[0]?.trim();
+        title = title || parts[1]?.replace(/Lyrics\s*\|.*$/, '')?.trim();
       }
 
       return {
@@ -44,17 +41,19 @@ export async function scrapeGenius(url) {
         source_url: location.href,
         source: 'genius',
       };
-    }, lyricsSelector);
+    });
 
-    if (!data?.lyrics || !data?.title || !data?.artist) {
-      throw new Error("Incomplete scrape: Could not find title, artist, or lyrics.");
+    if (!data.lyrics || !data.title || !data.artist) {
+      throw new Error('Incomplete scrape: lyrics/title/artist not found.');
     }
+
     return data;
+
   } catch (err) {
-    // Re-throw the error with more context for better debugging
+    // Screenshot for debugging if it fails
+    await page.screenshot({ path: 'genius-error.png' });
     throw new Error(`Genius scrape failed for URL ${url}: ${err.message}`);
   } finally {
-    // IMPORTANT: Only close the page, not the entire browser
     await page.close();
   }
 }

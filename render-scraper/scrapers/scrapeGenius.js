@@ -17,7 +17,7 @@ export async function scrapeGenius(url, retries = 2) {
     });
 
     const lyricsSelector = 'div[data-lyrics-container="true"]';
-    await page.waitForSelector(lyricsSelector, { timeout: 600000 });
+    await page.waitForSelector(lyricsSelector, { timeout: 120000 });
 
     const data = await page.evaluate((selector) => {
       const container = document.querySelector(selector);

@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "NODE_ENV=development nodemon index.js",
-    "postinstall": "node --dns-result-order=ipv4first node_modules/puppeteer/install.mjs"
+    "postinstall": "node --dns-result-order=ipv4first node_modules/puppeteer/install.mjs && npm fund"
   },
   "keywords": [
     "lyrics",

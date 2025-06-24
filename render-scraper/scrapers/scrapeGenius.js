@@ -1,7 +1,12 @@
 import { getBrowser } from './browserManager.js';
 import fs from 'fs/promises';
 
-export async function scrapeGenius(url, retries = 2) {
+function sanitizeUrl(input) {
+  return input.trim().replace(/[:;,]+$/, '');
+}
+
+export async function scrapeGenius(inputUrl, retries = 2) {
+  const url = sanitizeUrl(inputUrl);
   const browser = getBrowser();
   const page = await browser.newPage();
 
@@ -15,7 +20,6 @@ export async function scrapeGenius(url, retries = 2) {
       timeout: 60000,
     });
 
-    // Abort early if this is a 404 page
     const isNotFound = await page.evaluate(() =>
       document.body.innerText.includes("Oops! Page not found")
     );

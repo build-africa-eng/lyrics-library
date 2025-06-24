@@ -7,10 +7,10 @@ export async function scrapeLyricsCom(url) {
   const page = await browser.newPage();
   try {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 600000 });
 
     const lyricsSelector = '#lyric-body-text';
-    await page.waitForSelector(lyricsSelector, { timeout: 15000 });
+    await page.waitForSelector(lyricsSelector, { timeout: 120000 });
 
     const data = await page.evaluate((selector) => {
       const lyricsBody = document.querySelector(selector);

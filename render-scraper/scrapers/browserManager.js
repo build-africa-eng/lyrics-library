@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import BlockResourcesPlugin from 'puppeteer-extra-plugin-block-resources';
+import BlockResourcesPlugin from 'puppeteer-extra-plugin-adblocker';
 
 puppeteer.use(StealthPlugin());
 

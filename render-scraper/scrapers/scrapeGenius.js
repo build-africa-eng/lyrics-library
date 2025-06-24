@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import { getBrowser } from './browserManager.js';
 import sanitizeUrl from '../utils/sanitizeUrl.js';
 // Optional WebSocket logger
-import { sendWsMessage } from '../utils/wsLogger.js'; // if using WS
+import { sendWsMessage } from '../logger/webSocketLogger.js'; // if using WS
 
 export async function scrapeGenius(inputUrl, retries = 2) {
   const url = sanitizeUrl(inputUrl);

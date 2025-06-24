@@ -8,6 +8,15 @@ import { scrapeLyricsCom } from '../scrapers/scrapeLyricsCom.js';
 const router = express.Router();
 const lyricsCache = new NodeCache({ stdTTL: 43200 }); // 12h cache
 
+const isUrlValid = async (url) => {
+  try {
+    const res = await fetch(url, { method: 'HEAD' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
 // --- Genius API Search ---
 const searchGeniusAPI = async (query) => {
   const accessToken = process.env.GENIUS_API_TOKEN;
@@ -36,17 +45,21 @@ const searchOnGoogle = async (query) => {
     const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query + ' site:genius.com OR site:azlyrics.com OR site:lyrics.com')}`;
     await page.goto(searchUrl, {
       waitUntil: 'domcontentloaded',
-      timeout: 600000
+      timeout: 60000
     });
 
     const links = await page.evaluate(() => {
-      const anchors = Array.from(document.querySelectorAll('a')).map(a => a.href);
-      return anchors.filter(href =>
-        href.includes('genius.com') || href.includes('azlyrics.com') || href.includes('lyrics.com')
-      );
+      return Array.from(document.querySelectorAll('a'))
+        .map(a => a.href)
+        .filter(href =>
+          href.startsWith('https://genius.com/') ||
+          href.startsWith('https://www.azlyrics.com/') ||
+          href.startsWith('https://www.lyrics.com/') &&
+          !href.includes('search') && !href.includes('utm_')
+        );
     });
 
-    return [...new Set(links)].slice(0, 5); // deduplicate, limit to 5
+    return [...new Set(links)].slice(0, 5);
   } catch (err) {
     console.error(`❌ Google search failed: ${err.message}`);
     return [];
@@ -58,7 +71,7 @@ const searchOnGoogle = async (query) => {
 // --- Orchestrator ---
 const searchAndScrape = async (query) => {
   const geniusUrl = await searchGeniusAPI(query);
-  if (geniusUrl) {
+  if (geniusUrl && await isUrlValid(geniusUrl)) {
     try {
       const result = await scrapeGenius(geniusUrl);
       if (result) return result;
@@ -72,20 +85,17 @@ const searchAndScrape = async (query) => {
     throw new Error('No relevant links found in search results.');
   }
 
-  const scrapePromises = links.map(link => {
-    if (link.includes('genius.com')) return scrapeGenius(link);
-    if (link.includes('azlyrics.com')) return scrapeAZLyrics(link);
-    if (link.includes('lyrics.com')) return scrapeLyricsCom(link);
-    return Promise.reject(new Error('Unsupported link'));
-  });
-
-  try {
-    const result = await Promise.any(scrapePromises.map(p => p.catch(e => e)));
-    if (result instanceof Error) throw result;
-    return result;
-  } catch (err) {
-    throw new Error('All scrape attempts failed.');
+  for (const link of links) {
+    try {
+      if (link.includes('genius.com')) return await scrapeGenius(link);
+      if (link.includes('azlyrics.com')) return await scrapeAZLyrics(link);
+      if (link.includes('lyrics.com')) return await scrapeLyricsCom(link);
+    } catch (err) {
+      console.warn(`❌ Skipping failed scrape for ${link}: ${err.message}`);
+    }
   }
+
+  throw new Error('All scrape attempts failed.');
 };
 
 // --- Main Handler ---

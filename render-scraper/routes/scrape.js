@@ -2,7 +2,7 @@
 
 import express from 'express';
 import NodeCache from 'node-cache';
-import { getBrowser } from '../browserManager.js';
+import { getBrowser } from '../scrapers/browserManager.js';
 import { scrapeGenius } from '../scrapers/scrapeGenius.js';
 import { scrapeAZLyrics } from '../scrapers/scrapeAZLyrics.js';
 import { scrapeLyricsCom } from '../scrapers/scrapeLyricsCom.js';

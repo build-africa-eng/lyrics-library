@@ -1,6 +1,6 @@
 // browserManager.js
 
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
 
 // This will hold the single browser instance.
 let browserInstance = null;

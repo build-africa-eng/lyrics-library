@@ -1,10 +1,10 @@
-// puppeteer.config.js
-import { join } from 'path';
+// puppeteer.config.cjs
+const { join } = require('path');
 
 /**
  * @type {import("puppeteer").Configuration}
  */
-export default {
+module.exports = {
   // This is crucial for Render and other ephemeral filesystems.
   // It ensures Puppeteer downloads the browser to a location within your project.
   cacheDirectory: join(process.cwd(), '.cache', 'puppeteer'),

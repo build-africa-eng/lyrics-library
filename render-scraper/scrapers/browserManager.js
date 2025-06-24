@@ -1,4 +1,4 @@
-// browserManager.js
+// File: render-scraper/scrapers/browserManager.js
 
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
@@ -12,7 +12,7 @@ puppeteer.use(
   RecaptchaPlugin({
     provider: {
       id: '2captcha',
-      token: process.env.CAPTCHA_API_KEY || 'DUMMY_NO_KEY', // 🛡️ optional, use '' to skip
+      token: process.env.CAPTCHA_API_KEY || 'DUMMY_NO_KEY',
     },
     visualFeedback: true,
   })
@@ -29,7 +29,7 @@ export async function initBrowser() {
   console.log('🚀 Initializing a new stealth browser instance...');
   try {
     browserInstance = await puppeteer.launch({
-      headless: 'new', // or true for full headless
+      headless: true, // Safer than "new" on Render
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -41,12 +41,16 @@ export async function initBrowser() {
         '--single-process',
         '--mute-audio',
         '--hide-scrollbars',
+        '--disable-software-rasterizer', // ✅ Helps in headless environments
       ],
       defaultViewport: {
         width: 1280,
         height: 800,
       },
+      protocolTimeout: 60000, // ✅ Prevent Network.enable timeout
     });
+
+    console.log('✅ Browser launched successfully.');
 
     browserInstance.on('disconnected', async () => {
       console.warn('👋 Browser disconnected. Attempting to auto-restart...');

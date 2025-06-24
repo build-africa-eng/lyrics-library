@@ -1,11 +1,10 @@
-// File: render-scraper/scrapers/browserManager.js
+// render-scraper/scrapers/browserManager.js
 
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
 import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
 
-// 🧠 Configure plugins BEFORE launch
 puppeteer.use(StealthPlugin());
 puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
 puppeteer.use(
@@ -19,17 +18,33 @@ puppeteer.use(
 );
 
 let browserInstance = null;
+let initializing = false;
+let waitingResolvers = [];
 
-/**
- * Initializes and returns a singleton Puppeteer browser instance.
- */
-export async function initBrowser() {
+async function waitForBrowserReady() {
   if (browserInstance) return browserInstance;
 
+  return new Promise((resolve, reject) => {
+    waitingResolvers.push(resolve);
+    // Optional timeout fallback
+    setTimeout(() => reject(new Error('Browser failed to initialize in time.')), 15000);
+  });
+}
+
+async function resolveAllWaiters(instance) {
+  waitingResolvers.forEach((resolve) => resolve(instance));
+  waitingResolvers = [];
+}
+
+export async function initBrowser() {
+  if (browserInstance) return browserInstance;
+  if (initializing) return waitForBrowserReady();
+
+  initializing = true;
   console.log('🚀 Initializing a new stealth browser instance...');
   try {
     browserInstance = await puppeteer.launch({
-      headless: true, // Safer than "new" on Render
+      headless: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -41,16 +56,11 @@ export async function initBrowser() {
         '--single-process',
         '--mute-audio',
         '--hide-scrollbars',
-        '--disable-software-rasterizer', // ✅ Helps in headless environments
+        '--disable-software-rasterizer',
       ],
-      defaultViewport: {
-        width: 1280,
-        height: 800,
-      },
-      protocolTimeout: 60000, // ✅ Prevent Network.enable timeout
+      defaultViewport: { width: 1280, height: 800 },
+      protocolTimeout: 60000,
     });
-
-    console.log('✅ Browser launched successfully.');
 
     browserInstance.on('disconnected', async () => {
       console.warn('👋 Browser disconnected. Attempting to auto-restart...');
@@ -63,26 +73,23 @@ export async function initBrowser() {
       }
     });
 
+    console.log('✅ Browser launched successfully.');
+    resolveAllWaiters(browserInstance);
     return browserInstance;
   } catch (err) {
     console.error('💥 Could not launch Puppeteer:', err);
+    resolveAllWaiters(null); // Prevent hanging
     throw err;
+  } finally {
+    initializing = false;
   }
 }
 
-/**
- * Returns the current browser instance. Throws if not initialized.
- */
-export function getBrowser() {
-  if (!browserInstance) {
-    throw new Error('❌ Browser not initialized. Call initBrowser() first.');
-  }
-  return browserInstance;
+export async function getBrowser() {
+  if (browserInstance) return browserInstance;
+  return waitForBrowserReady();
 }
 
-/**
- * Cleanly closes the browser.
- */
 export async function closeBrowser() {
   if (browserInstance) {
     console.log('🛑 Closing browser instance...');

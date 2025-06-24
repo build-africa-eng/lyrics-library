@@ -1,24 +1,40 @@
+const ALLOWED_DOMAINS = ['genius.com', 'azlyrics.com', 'lyrics.com'];
+
 /**
- * Clean and sanitize a URL by removing:
- * - trailing punctuation (:.,;!?)
- * - query parameters
- * - hash fragments
- * - extra whitespace
- * @param {string} url
- * @returns {string}
+ * Clean and sanitize a lyrics-related URL.
+ * - Converts mobile subdomains (e.g., m.genius.com → genius.com)
+ * - Strips query params and fragments
+ * - Removes trailing punctuation
+ * - Normalizes path
+ * - Enforces domain whitelist
+ *
+ * @param {string} input
+ * @returns {string} cleaned URL or '' if invalid/unsupported
  */
-export default function sanitizeUrl(url) {
-  if (typeof url !== 'string') return '';
+export default function sanitizeUrl(input) {
+  if (typeof input !== 'string') return '';
 
   try {
-    const parsed = new URL(url.trim());
-    // Reconstruct without search params or hash
-    return parsed.origin + parsed.pathname.replace(/[:.,;!?]+$/, '');
-  } catch {
-    // If it's not a valid URL, fallback to manual clean
-    return url
-      .replace(/[?#].*$/, '')        // Remove query string or fragment
-      .replace(/[:.,;!?]+$/, '')     // Remove trailing punctuation
+    let url = new URL(input.trim());
+
+    // Normalize domain
+    let hostname = url.hostname.toLowerCase().replace(/^www\.|^m\./, '');
+
+    // Only allow known domains
+    if (!ALLOWED_DOMAINS.includes(hostname)) {
+      console.warn(`❌ Domain not allowed: ${hostname}`);
+      return '';
+    }
+
+    // Normalize path: remove duplicate slashes and trailing punctuation
+    let pathname = url.pathname
+      .replace(/\/+/g, '/')                // dedupe slashes
+      .replace(/[:.,;!?]+$/, '')           // strip trailing punctuation
       .trim();
+
+    return `${url.protocol}//${hostname}${pathname}`;
+  } catch (err) {
+    console.warn(`⚠️ Failed to sanitize URL: ${input}`);
+    return '';
   }
 }

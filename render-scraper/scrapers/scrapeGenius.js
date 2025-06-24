@@ -2,15 +2,19 @@ import fs from 'fs/promises';
 import { getBrowser } from './browserManager.js';
 import sanitizeUrl from '../utils/sanitizeUrl.js';
 // Optional WebSocket logger
-import { logToClients } from '../logger/webSocketLogger.js'; // if using WS
+import { logToClients } from '../logger/webSocketLogger.js'; // optional
 
 export async function scrapeGenius(inputUrl, retries = 2) {
   const url = sanitizeUrl(inputUrl);
-  if (!url) {
-    throw new Error(`Invalid or unsupported URL provided to scrapeGenius: ${inputUrl}`);
+  if (!url) throw new Error(`Invalid or unsupported URL provided to scrapeGenius: ${inputUrl}`);
+
+  let browser;
+  try {
+    browser = await getBrowser();
+  } catch (e) {
+    throw new Error(`❌ Failed to get browser instance: ${e.message}`);
   }
 
-  const browser = getBrowser();
   const page = await browser.newPage();
 
   try {
@@ -33,7 +37,7 @@ export async function scrapeGenius(inputUrl, retries = 2) {
       const message = '🤖 CAPTCHA detected — skipping further retries due to zero-cost constraint.';
       console.warn(message);
       await fs.writeFile(`/tmp/genius-captcha-${Date.now()}.html`, await page.content());
-      sendWsMessage?.('log', message); // optional
+      logToClients?.('log', message);
       throw new Error("Blocked by CAPTCHA. Cannot bypass without paid API.");
     }
 
@@ -105,6 +109,7 @@ export async function scrapeGenius(inputUrl, retries = 2) {
     }
 
     return data;
+
   } catch (err) {
     const ts = Date.now();
     try {

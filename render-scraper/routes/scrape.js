@@ -1,33 +1,48 @@
 import express from 'express';
 import NodeCache from 'node-cache';
-import { getBrowser } from '../scrapers/browserManager.js';
+import { getBrowserPage, checkBrowserHealth } from '../scrapers/browserManager.js';
 import { scrapeGenius } from '../scrapers/scrapeGenius.js';
 import { scrapeAZLyrics } from '../scrapers/scrapeAZLyrics.js';
 import { scrapeLyricsCom } from '../scrapers/scrapeLyricsCom.js';
-
-// 1. IMPORT the robust sanitizer from your utils file.
 import sanitizeUrl from '../utils/sanitizeUrl.js';
 
 const router = express.Router();
 const lyricsCache = new NodeCache({ stdTTL: 43200 }); // 12h cache
 
-// 2. DELETE the old, simplified helper function.
-// const sanitizeUrl = (url) => url.replace(/[:.,;!?]+$/, ''); // <-- REMOVE THIS LINE
-
 // --- Genius API Search ---
 const searchGeniusAPI = async (query) => {
   const accessToken = process.env.GENIUS_API_TOKEN;
-  if (!accessToken) return null;
+  if (!accessToken) {
+    console.log('ℹ️ No Genius API token configured');
+    return null;
+  }
 
   try {
+    console.log(`🎤 Searching Genius API for: ${query}`);
     const response = await fetch(`https://api.genius.com/search?q=${encodeURIComponent(query)}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { 
+        Authorization: `Bearer ${accessToken}`,
+        'User-Agent': 'LyricsScraper/1.0'
+      },
+      timeout: 10000 // 10 second timeout
     });
-    if (!response.ok) return null;
+    
+    if (!response.ok) {
+      console.warn(`⚠️ Genius API returned ${response.status}: ${response.statusText}`);
+      return null;
+    }
 
     const data = await response.json();
-    const hit = data.response.hits.find(h => h.result?.url);
-    return hit?.result?.url || null;
+    const hit = data.response?.hits?.find(h => h.result?.url);
+    const url = hit?.result?.url;
+    
+    if (url) {
+      console.log(`✅ Found Genius URL via API: ${url}`);
+    } else {
+      console.log('ℹ️ No results from Genius API');
+    }
+    
+    return url || null;
   } catch (err) {
     console.error(`❌ Genius API error: ${err.message}`);
     return null;
@@ -36,73 +51,149 @@ const searchGeniusAPI = async (query) => {
 
 // --- Google Fallback ---
 const searchOnGoogle = async (query) => {
-  const browser = getBrowser();
-  const page = await browser.newPage();
+  let page = null;
+  
   try {
+    console.log(`🔍 Searching Google for: ${query}`);
+    
+    // Use the new getBrowserPage helper instead of getBrowser().newPage()
+    page = await getBrowserPage();
+    
     const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query + ' site:genius.com OR site:azlyrics.com OR site:lyrics.com')}`;
+    
     await page.goto(searchUrl, {
       waitUntil: 'domcontentloaded',
-      timeout: 600000
+      timeout: 30000 // Reduced timeout for low-resource environment
     });
 
+    // Handle Google cookie consent
+    try {
+      await page.click('button[id="L2AGLb"]', { timeout: 3000 });
+      console.log('✅ Google cookies accepted');
+    } catch {
+      console.log('ℹ️ No Google cookie banner found');
+    }
+
+    // Extract links from search results
     const links = await page.evaluate(() => {
-      const anchors = Array.from(document.querySelectorAll('a')).map(a => a.href);
-      return anchors.filter(href =>
-        href.includes('genius.com') || href.includes('azlyrics.com') || href.includes('lyrics.com')
-      );
+      const anchors = Array.from(document.querySelectorAll('a[href]'));
+      return anchors
+        .map(a => a.href)
+        .filter(href => 
+          href && (
+            href.includes('genius.com') || 
+            href.includes('azlyrics.com') || 
+            href.includes('lyrics.com')
+          )
+        );
     });
     
-    // 3. This map will now use the powerful imported `sanitizeUrl` function.
-    return [...new Set(links.map(sanitizeUrl))].slice(0, 5);
+    // Sanitize and deduplicate URLs
+    const sanitizedLinks = [...new Set(links.map(sanitizeUrl))]
+      .filter(link => link) // Remove empty strings from failed sanitization
+      .slice(0, 5); // Limit to 5 results
+    
+    console.log(`📋 Found ${sanitizedLinks.length} valid lyrics URLs from Google`);
+    return sanitizedLinks;
+    
   } catch (err) {
     console.error(`❌ Google search failed: ${err.message}`);
     return [];
   } finally {
-    await page.close();
+    if (page) {
+      try {
+        await page.close();
+      } catch (err) {
+        console.warn('⚠️ Error closing Google search page:', err.message);
+      }
+    }
   }
 };
 
 // --- Orchestrator ---
 const searchAndScrape = async (query) => {
+  console.log(`🎵 Starting search and scrape for: ${query}`);
+  
+  // Try Genius API first (fastest)
   const geniusUrl = await searchGeniusAPI(query);
   if (geniusUrl) {
-    // This now correctly uses the robust sanitizer.
     const cleanedUrl = sanitizeUrl(geniusUrl);
     
-    // An empty string from the sanitizer means the URL was invalid.
     if (!cleanedUrl) {
-       console.warn(`⚠️ Genius API returned an invalid URL: ${geniusUrl}`);
+      console.warn(`⚠️ Genius API returned an invalid URL: ${geniusUrl}`);
     } else {
-        try {
-          const result = await scrapeGenius(cleanedUrl);
-          if (result) return result;
-        } catch (err) {
-          console.warn(`⚠️ Genius scrape failed: ${err.message}`);
+      try {
+        console.log(`🎯 Trying Genius API result: ${cleanedUrl}`);
+        const result = await scrapeGenius(cleanedUrl);
+        if (result && result.lyrics) {
+          console.log(`✅ Success via Genius API: ${result.title} by ${result.artist}`);
+          return result;
         }
+      } catch (err) {
+        console.warn(`⚠️ Genius API URL scrape failed: ${err.message}`);
+      }
     }
   }
 
+  // Fallback to Google search
   const links = await searchOnGoogle(query);
   if (!links.length) {
-    throw new Error('No relevant links found in search results.');
+    throw new Error('No relevant links found in search results');
   }
   
-  // Filter out any empty strings that may result from sanitization
-  const validLinks = links.filter(link => link);
+  console.log(`🔄 Attempting to scrape ${links.length} URLs from Google results`);
 
-  const scrapePromises = validLinks.map(link => {
-    if (link.includes('genius.com')) return scrapeGenius(link);
-    if (link.includes('azlyrics.com')) return scrapeAZLyrics(link);
-    if (link.includes('lyrics.com')) return scrapeLyricsCom(link);
-    return Promise.reject(new Error('Unsupported link'));
-  });
+  // Try each link sequentially (better for low-resource environment)
+  for (const link of links) {
+    try {
+      console.log(`🎯 Trying: ${link}`);
+      
+      let result;
+      if (link.includes('genius.com')) {
+        result = await scrapeGenius(link);
+      } else if (link.includes('azlyrics.com')) {
+        result = await scrapeAZLyrics(link);
+      } else if (link.includes('lyrics.com')) {
+        result = await scrapeLyricsCom(link);
+      } else {
+        console.warn(`⚠️ Unsupported site: ${link}`);
+        continue;
+      }
+      
+      if (result && result.lyrics) {
+        console.log(`✅ Success: ${result.title} by ${result.artist} from ${result.source}`);
+        return result;
+      }
+    } catch (err) {
+      console.warn(`⚠️ Failed to scrape ${link}: ${err.message}`);
+      continue; // Try next URL
+    }
+  }
 
+  throw new Error('All scrape attempts failed');
+};
+
+// --- Health Check Handler ---
+const handleHealthCheck = async (req, res) => {
   try {
-    const result = await Promise.any(scrapePromises.map(p => p.catch(e => e)));
-    if (result instanceof Error) throw result;
-    return result;
+    const health = await checkBrowserHealth();
+    
+    res.json({
+      status: health.healthy ? 'healthy' : 'unhealthy',
+      browser: health,
+      cache: {
+        keys: lyricsCache.keys().length,
+        stats: lyricsCache.getStats()
+      },
+      memory: process.memoryUsage(),
+      timestamp: new Date().toISOString()
+    });
   } catch (err) {
-    throw new Error('All scrape attempts failed.');
+    res.status(500).json({
+      status: 'error',
+      error: err.message,
+      timestamp: new Date().toISOString()
+    });
   }
 };
 
@@ -112,13 +203,24 @@ const handleScrapeRequest = async (req, res, next) => {
   const cacheKey = query || url;
 
   if (!cacheKey) {
-    return res.status(400).json({ error: 'Missing `query` or `url` parameter.' });
+    return res.status(400).json({ 
+      error: 'Missing required parameter: query or url',
+      usage: {
+        search: '/scrape?query=artist song',
+        direct: '/scrape?url=https://genius.com/...'
+      }
+    });
   }
 
+  // Check cache first
   const cached = lyricsCache.get(cacheKey);
   if (cached) {
     console.log(`✅ Cache hit: ${cacheKey}`);
-    return res.json({ ...cached, source: 'cache' });
+    return res.json({ 
+      ...cached, 
+      cached: true,
+      cache_timestamp: cached.timestamp || 'unknown'
+    });
   }
 
   console.log(`🔥 Cache miss: ${cacheKey}`);
@@ -127,28 +229,76 @@ const handleScrapeRequest = async (req, res, next) => {
     let result;
 
     if (url) {
-      const cleanedUrl = sanitizeUrl(url); // Now uses the robust sanitizer.
+      // Direct URL scraping
+      const cleanedUrl = sanitizeUrl(url);
       if (!cleanedUrl) {
-         return res.status(400).json({ error: 'Invalid or unsupported URL provided.' });
+        return res.status(400).json({ 
+          error: 'Invalid or unsupported URL provided',
+          provided_url: url 
+        });
       }
 
-      if (cleanedUrl.includes('genius.com')) result = await scrapeGenius(cleanedUrl);
-      else if (cleanedUrl.includes('azlyrics.com')) result = await scrapeAZLyrics(cleanedUrl);
-      else if (cleanedUrl.includes('lyrics.com')) result = await scrapeLyricsCom(cleanedUrl);
-      else return res.status(400).json({ error: 'Unsupported URL. Must be from Genius, AZLyrics, or Lyrics.com' });
+      console.log(`🎯 Direct scrape requested: ${cleanedUrl}`);
+
+      if (cleanedUrl.includes('genius.com')) {
+        result = await scrapeGenius(cleanedUrl);
+      } else if (cleanedUrl.includes('azlyrics.com')) {
+        result = await scrapeAZLyrics(cleanedUrl);
+      } else if (cleanedUrl.includes('lyrics.com')) {
+        result = await scrapeLyricsCom(cleanedUrl);
+      } else {
+        return res.status(400).json({ 
+          error: 'Unsupported URL. Must be from Genius, AZLyrics, or Lyrics.com',
+          supported_sites: ['genius.com', 'azlyrics.com', 'lyrics.com']
+        });
+      }
     } else {
+      // Search and scrape
       result = await searchAndScrape(query);
     }
 
+    // Add metadata
+    result.timestamp = new Date().toISOString();
+    result.scraped_via = url ? 'direct' : 'search';
+    result.cached = false;
+
+    // Cache the result
     lyricsCache.set(cacheKey, result);
+    
+    console.log(`✅ Scrape successful: ${result.title} by ${result.artist}`);
     return res.json(result);
+
   } catch (err) {
-    console.error(`❌ Scrape failed: ${err.message}`);
-    next(err);
+    console.error(`❌ Scrape failed for "${cacheKey}": ${err.message}`);
+    
+    // Return detailed error information
+    const errorResponse = {
+      error: 'Scrape failed',
+      message: err.message,
+      query: query || null,
+      url: url || null,
+      timestamp: new Date().toISOString()
+    };
+
+    // Add specific error codes for common issues
+    if (err.message.includes('CAPTCHA')) {
+      errorResponse.error_code = 'CAPTCHA_BLOCKED';
+      errorResponse.suggestion = 'Try again later or use a different query';
+    } else if (err.message.includes('not found')) {
+      errorResponse.error_code = 'NOT_FOUND';
+      errorResponse.suggestion = 'Check spelling or try different search terms';
+    } else if (err.message.includes('timeout')) {
+      errorResponse.error_code = 'TIMEOUT';
+      errorResponse.suggestion = 'Server is busy, try again in a moment';
+    }
+
+    res.status(500).json(errorResponse);
   }
 };
 
+// Routes
 router.get('/', handleScrapeRequest);
 router.post('/', handleScrapeRequest);
+router.get('/health', handleHealthCheck);
 
 export default router;

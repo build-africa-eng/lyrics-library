@@ -1,155 +1,149 @@
-import express from 'express';
-import axios from 'axios';
-import * as cheerio from 'cheerio';
-// ++ ADD a caching library
-import NodeCache from 'node-cache';
+// routes/scrape.js
 
-import { scrapeGenius } from '../scrapers/genius.js';
-import { scrapeAZLyrics } from '../scrapers/azlyrics.js';
-import { scrapeLyricsCom } from '../scrapers/lyricscom.js';
+import express from 'express';
+import NodeCache from 'node-cache';
+import { getBrowser } from '../browserManager.js';
+import { scrapeGenius } from '../scrapers/scrapeGenius.js';
+import { scrapeAZLyrics } from '../scrapers/scrapeAZLyrics.js';
+import { scrapeLyricsCom } from '../scrapers/scrapeLyricsCom.js';
 
 const router = express.Router();
-// ++ Create a cache instance. Cache results for 24 hours (86400 seconds).
-const lyricsCache = new NodeCache({ stdTTL: 86400 });
+// Cache results for 12 hours.
+const lyricsCache = new NodeCache({ stdTTL: 43200 });
 
-// ++ IMPROVEMENT 1: Prioritize the official Genius API
+// --- Helper Functions ---
+
+/**
+ * Uses the official Genius API to find a song URL.
+ * Requires GENIUS_API_TOKEN environment variable.
+ */
 const searchGeniusAPI = async (query) => {
   const accessToken = process.env.GENIUS_API_TOKEN;
-  if (!accessToken) {
-    console.warn('Genius API token not found. Skipping API search.');
-    return null;
-  }
-  const searchUrl = `https://api.genius.com/search?q=${encodeURIComponent(query)}`;
+  if (!accessToken) return null;
+
   try {
-    const { data } = await axios.get(searchUrl, {
+    const searchUrl = `https://api.genius.com/search?q=${encodeURIComponent(query)}`;
+    const response = await fetch(searchUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    // Find the first result that has a URL
+    if (!response.ok) return null;
+    const data = await response.json();
     const hit = data.response.hits.find(h => h.result.url);
-    if (hit) {
-      console.log(`Genius API hit: ${hit.result.url}`);
-      return scrapeGenius(hit.result.url);
-    }
-    return null;
+    return hit ? hit.result.url : null;
   } catch (err) {
     console.error(`Genius API search failed: ${err.message}`);
-    return null; // Don't throw, so we can proceed to other methods
+    return null;
+  }
+};
+
+/**
+ * Scrapes Google search results using Puppeteer to find lyric page URLs.
+ */
+const searchOnGoogle = async (query) => {
+  const browser = getBrowser();
+  const page = await browser.newPage();
+  try {
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+    await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+
+    // This selector targets the <a> tag within the main search result heading (<h3>).
+    const links = await page.evaluate(() => {
+      const anchors = Array.from(document.querySelectorAll('div.g a'));
+      return anchors
+        .map(a => a.href)
+        .filter(href => href.startsWith('http') && (href.includes('genius.com') || href.includes('azlyrics.com') || href.includes('lyrics.com')));
+    });
+
+    return links;
+  } finally {
+    await page.close();
   }
 };
 
 
-// REFACTORED searchAndScrape function
+/**
+ * The main search and scrape orchestration function.
+ */
 const searchAndScrape = async (query) => {
-  // ++ Check cache first
-  const cachedResult = lyricsCache.get(query);
-  if (cachedResult) {
-    console.log(`Cache hit for query: ${query}`);
-    return { ...cachedResult, source: 'cache' };
+  // 1. First, try the Genius API for a direct hit.
+  const geniusUrl = await searchGeniusAPI(query);
+  if (geniusUrl) {
+    try {
+      const result = await scrapeGenius(geniusUrl);
+      if (result) return result;
+    } catch (err) {
+      console.warn(`Scrape failed for Genius API URL (${geniusUrl}): ${err.message}`);
+    }
   }
 
-  // ++ 1. First, try the reliable Genius API
-  try {
-    const geniusApiResult = await searchGeniusAPI(query);
-    if (geniusApiResult) {
-      lyricsCache.set(query, geniusApiResult); // Cache the success
-      return geniusApiResult;
-    }
-  } catch(err) {
-    console.warn(`Genius API scrape failed: ${err.message}`);
-  }
-
-  // ++ 2. Fallback to scraping Google search for other sites
-  const searchQuery = encodeURIComponent(`${query} site:azlyrics.com OR site:lyrics.com`);
-  const searchUrl = `https://www.google.com/search?q=${searchQuery}`;
-  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' };
-
-  const { data: html } = await axios.get(searchUrl, { headers });
-  const $ = cheerio.load(html);
-  const links = [];
-
-  $('a').each((_, el) => {
-    const href = $(el).attr('href');
-    if (href?.includes('/url?q=')) {
-      const url = decodeURIComponent(href.split('/url?q=')[1].split('&')[0]);
-      if ((url.includes('azlyrics.com') || url.includes('lyrics.com')) && !url.includes('google')) {
-        links.push(url);
-      }
-    }
-  });
-
+  // 2. If Genius API fails, search on Google.
+  const links = await searchOnGoogle(query);
   if (links.length === 0) {
     throw new Error('No relevant links found in search results.');
   }
 
-  // ++ IMPROVEMENT 2: Use Promise.any to scrape concurrently
+  // 3. Try scraping the found links concurrently.
   const scrapePromises = links.map(link => {
+    if (link.includes('genius.com')) return scrapeGenius(link);
     if (link.includes('azlyrics.com')) return scrapeAZLyrics(link);
     if (link.includes('lyrics.com')) return scrapeLyricsCom(link);
-    return Promise.reject(new Error('Invalid link type')); // Should not happen
+    // Return a rejected promise for unsupported links
+    return Promise.reject(new Error('Unsupported link'));
   });
 
+  // Use Promise.any to get the first successful result.
   try {
-    const result = await Promise.any(scrapePromises);
-    lyricsCache.set(query, result); // Cache the success
+    const result = await Promise.any(scrapePromises.map(p => p.catch(e => e))); // wrap to prevent one rejection from killing all
+    if (result instanceof Error) throw result; // rethrow if the first resolved promise was an error
     return result;
   } catch (err) {
-    // Promise.any throws an AggregateError if all promises reject
-    console.error('All concurrent scrape attempts failed.', err);
     throw new Error('All scrape attempts failed.');
   }
 };
 
 
-// REFACTORED router handlers to be cleaner
-const handleScrapeRequest = async (req, res) => {
-  const { query, url, source } = { ...req.body, ...req.query };
+// --- Main Route Handler ---
 
-  // ++ Check cache for URL-based requests
-  if (url) {
-    const cachedResult = lyricsCache.get(url);
-    if (cachedResult) {
-      console.log(`Cache hit for URL: ${url}`);
-      return res.json({ ...cachedResult, source: 'cache' });
-    }
+const handleScrapeRequest = async (req, res, next) => {
+  // Combine body and query for flexibility (supports GET and POST)
+  const { query, url } = { ...req.body, ...req.query };
+  const cacheKey = query || url;
+
+  if (!cacheKey) {
+    return res.status(400).json({ error: 'Missing `query` or `url` parameter.' });
   }
+
+  // Check cache first
+  const cachedResult = lyricsCache.get(cacheKey);
+  if (cachedResult) {
+    console.log(`✅ Cache hit for: ${cacheKey}`);
+    return res.json({ ...cachedResult, source: 'cache' });
+  }
+
+  console.log(`🔥 Cache miss. Scraping for: ${cacheKey}`);
 
   try {
     let result;
     if (url) {
-      // Logic for direct URL scraping
-      const targetSource = source || (url.includes('genius.com') ? 'genius' : url.includes('azlyrics.com') ? 'azlyrics' : url.includes('lyrics.com') ? 'lyricscom' : null);
-      
-      switch (targetSource) {
-        case 'genius':
-          result = await scrapeGenius(url);
-          break;
-        case 'azlyrics':
-          result = await scrapeAZLyrics(url);
-          break;
-        case 'lyricscom':
-          result = await scrapeLyricsCom(url);
-          break;
-        default:
-          return res.status(400).json({ error: 'Unsupported or missing URL source' });
-      }
-      lyricsCache.set(url, result); // Cache the result
-      return res.json(result);
-
-    } else if (query) {
-      // Logic for query-based searching
-      result = await searchAndScrape(query);
-      return res.json(result);
-
+      if (url.includes('genius.com')) result = await scrapeGenius(url);
+      else if (url.includes('azlyrics.com')) result = await scrapeAZLyrics(url);
+      else if (url.includes('lyrics.com')) result = await scrapeLyricsCom(url);
+      else return res.status(400).json({ error: 'Unsupported URL. Must be from Genius, AZLyrics, or Lyrics.com' });
     } else {
-      return res.status(400).json({ error: 'Missing `query` or `url` parameter.' });
+      result = await searchAndScrape(query);
     }
+    
+    // Cache the successful result
+    lyricsCache.set(cacheKey, result);
+    return res.json(result);
+
   } catch (err) {
-    console.error(`Scrape request failed: ${err.message}`);
-    return res.status(500).json({ error: err.message });
+    // Pass error to the global error handler
+    next(err);
   }
 };
 
-router.post('/', handleScrapeRequest);
 router.get('/', handleScrapeRequest);
+router.post('/', handleScrapeRequest);
 
 export default router;

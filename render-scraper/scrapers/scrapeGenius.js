@@ -1,8 +1,7 @@
 import fs from 'fs/promises';
 import { getBrowser } from './browserManager.js';
 import sanitizeUrl from '../utils/sanitizeUrl.js';
-// Optional WebSocket logger
-import { logToClients } from '../logger/webSocketLogger.js'; // optional
+import { logToClients as sendWsMessage } from '../logger/webSocketLogger.js'; // optional
 
 export async function scrapeGenius(inputUrl, retries = 2) {
   const url = sanitizeUrl(inputUrl);
@@ -11,8 +10,12 @@ export async function scrapeGenius(inputUrl, retries = 2) {
   let browser;
   try {
     browser = await getBrowser();
-  } catch (e) {
-    throw new Error(`❌ Failed to get browser instance: ${e.message}`);
+  } catch (err) {
+    throw new Error(`❌ Failed to get browser instance: ${err.message}`);
+  }
+
+  if (typeof browser.newPage !== 'function') {
+    throw new Error('❌ browser.newPage is not a function — browser may not be initialized correctly.');
   }
 
   const page = await browser.newPage();
@@ -27,7 +30,6 @@ export async function scrapeGenius(inputUrl, retries = 2) {
       timeout: 90000,
     });
 
-    // 🔍 CAPTCHA / Cloudflare detection
     const isChallenge = await page.evaluate(() =>
       document.body.innerText.includes("Verifying you are human") ||
       document.title.includes("Just a moment...") ||
@@ -37,11 +39,10 @@ export async function scrapeGenius(inputUrl, retries = 2) {
       const message = '🤖 CAPTCHA detected — skipping further retries due to zero-cost constraint.';
       console.warn(message);
       await fs.writeFile(`/tmp/genius-captcha-${Date.now()}.html`, await page.content());
-      logToClients?.('log', message);
+      sendWsMessage?.('log', message);
       throw new Error("Blocked by CAPTCHA. Cannot bypass without paid API.");
     }
 
-    // ✅ Cookie consent
     try {
       const consentButton = 'button[id="onetrust-accept-btn-handler"]';
       await page.waitForSelector(consentButton, { timeout: 7000 });
@@ -56,7 +57,6 @@ export async function scrapeGenius(inputUrl, retries = 2) {
     );
     if (isNotFound) throw new Error("❌ Genius 404 - Page not found");
 
-    // 🎯 Try known lyrics selectors
     const selectors = [
       'div[data-lyrics-container="true"]',
       '[class^="Lyrics__Container-"]',

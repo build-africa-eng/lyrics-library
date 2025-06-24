@@ -5,11 +5,14 @@ import { scrapeGenius } from '../scrapers/scrapeGenius.js';
 import { scrapeAZLyrics } from '../scrapers/scrapeAZLyrics.js';
 import { scrapeLyricsCom } from '../scrapers/scrapeLyricsCom.js';
 
+// 1. IMPORT the robust sanitizer from your utils file.
+import sanitizeUrl from '../utils/sanitizeUrl.js';
+
 const router = express.Router();
 const lyricsCache = new NodeCache({ stdTTL: 43200 }); // 12h cache
 
-// --- Helpers ---
-const sanitizeUrl = (url) => url.replace(/[:.,;!?]+$/, '');
+// 2. DELETE the old, simplified helper function.
+// const sanitizeUrl = (url) => url.replace(/[:.,;!?]+$/, ''); // <-- REMOVE THIS LINE
 
 // --- Genius API Search ---
 const searchGeniusAPI = async (query) => {
@@ -48,8 +51,9 @@ const searchOnGoogle = async (query) => {
         href.includes('genius.com') || href.includes('azlyrics.com') || href.includes('lyrics.com')
       );
     });
-
-    return [...new Set(links.map(sanitizeUrl))].slice(0, 5); // deduplicate and sanitize
+    
+    // 3. This map will now use the powerful imported `sanitizeUrl` function.
+    return [...new Set(links.map(sanitizeUrl))].slice(0, 5);
   } catch (err) {
     console.error(`❌ Google search failed: ${err.message}`);
     return [];
@@ -62,12 +66,19 @@ const searchOnGoogle = async (query) => {
 const searchAndScrape = async (query) => {
   const geniusUrl = await searchGeniusAPI(query);
   if (geniusUrl) {
+    // This now correctly uses the robust sanitizer.
     const cleanedUrl = sanitizeUrl(geniusUrl);
-    try {
-      const result = await scrapeGenius(cleanedUrl);
-      if (result) return result;
-    } catch (err) {
-      console.warn(`⚠️ Genius scrape failed: ${err.message}`);
+    
+    // An empty string from the sanitizer means the URL was invalid.
+    if (!cleanedUrl) {
+       console.warn(`⚠️ Genius API returned an invalid URL: ${geniusUrl}`);
+    } else {
+        try {
+          const result = await scrapeGenius(cleanedUrl);
+          if (result) return result;
+        } catch (err) {
+          console.warn(`⚠️ Genius scrape failed: ${err.message}`);
+        }
     }
   }
 
@@ -75,8 +86,11 @@ const searchAndScrape = async (query) => {
   if (!links.length) {
     throw new Error('No relevant links found in search results.');
   }
+  
+  // Filter out any empty strings that may result from sanitization
+  const validLinks = links.filter(link => link);
 
-  const scrapePromises = links.map(link => {
+  const scrapePromises = validLinks.map(link => {
     if (link.includes('genius.com')) return scrapeGenius(link);
     if (link.includes('azlyrics.com')) return scrapeAZLyrics(link);
     if (link.includes('lyrics.com')) return scrapeLyricsCom(link);
@@ -113,7 +127,11 @@ const handleScrapeRequest = async (req, res, next) => {
     let result;
 
     if (url) {
-      const cleanedUrl = sanitizeUrl(url);
+      const cleanedUrl = sanitizeUrl(url); // Now uses the robust sanitizer.
+      if (!cleanedUrl) {
+         return res.status(400).json({ error: 'Invalid or unsupported URL provided.' });
+      }
+
       if (cleanedUrl.includes('genius.com')) result = await scrapeGenius(cleanedUrl);
       else if (cleanedUrl.includes('azlyrics.com')) result = await scrapeAZLyrics(cleanedUrl);
       else if (cleanedUrl.includes('lyrics.com')) result = await scrapeLyricsCom(cleanedUrl);

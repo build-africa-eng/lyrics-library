@@ -1,6 +1,6 @@
 // scrapers/scrapeLyricsCom.js
 
-import { getBrowser } from '../browserManager.js';
+import { getBrowser } from './browserManager.js';
 
 export async function scrapeLyricsCom(url) {
   const browser = getBrowser();

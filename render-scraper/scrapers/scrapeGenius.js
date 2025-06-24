@@ -1,19 +1,9 @@
-// scrapers/scrapeGenius.js
-import { getBrowser, initBrowser } from './browserManager.js';
+import { getBrowser } from './browserManager.js';
 import fs from 'fs/promises';
 
 export async function scrapeGenius(url, retries = 2) {
-  let browser;
-  try {
-    browser = getBrowser();
-  } catch (e) {
-    console.warn('⚠️ Browser not available. Re-initializing...');
-    await initBrowser(true);
-    browser = getBrowser();
-  }
-
+  const browser = getBrowser();
   const page = await browser.newPage();
-  const timestamp = Date.now();
 
   try {
     await page.setUserAgent(
@@ -25,6 +15,14 @@ export async function scrapeGenius(url, retries = 2) {
       timeout: 60000,
     });
 
+    // Abort early if this is a 404 page
+    const isNotFound = await page.evaluate(() =>
+      document.body.innerText.includes("Oops! Page not found")
+    );
+    if (isNotFound) {
+      throw new Error("❌ Genius 404 - Page not found");
+    }
+
     const lyricsSelector = 'div[data-lyrics-container="true"]';
     await page.waitForSelector(lyricsSelector, { timeout: 20000 });
 
@@ -33,10 +31,10 @@ export async function scrapeGenius(url, retries = 2) {
       if (!container) return null;
 
       container.innerHTML = container.innerHTML.replace(/<br\s*\/?>/gi, '\n');
-      const lyrics = container.innerText.trim();
+      const lyrics = container.innerText;
 
-      let title = document.querySelector('h1[class^="SongHeader__Title"], h1[class^="HeaderArtistAndTracklist__Title"]')?.innerText?.trim();
-      let artist = document.querySelector('a[class^="SongHeader__Artist"], a[class^="HeaderArtistAndTracklist__Artist"]')?.innerText?.trim();
+      let title = document.querySelector('h1[class^="SongHeader__Title"], h1[class^="HeaderArtistAndTracklist__Title"]')?.innerText;
+      let artist = document.querySelector('a[class^="SongHeader__Artist"], a[class^="HeaderArtistAndTracklist__Artist"]')?.innerText;
 
       if (!title || !artist) {
         const pageTitle = document.querySelector('title')?.textContent;
@@ -57,35 +55,29 @@ export async function scrapeGenius(url, retries = 2) {
     }, lyricsSelector);
 
     if (!data?.lyrics || !data?.title || !data?.artist) {
-      throw new Error('Incomplete scrape: Could not find title, artist, or lyrics.');
+      throw new Error("Incomplete scrape: Missing title, artist, or lyrics.");
     }
 
     return data;
-
   } catch (err) {
-    // Attempt debug snapshot
+    const ts = Date.now();
     try {
-      if (!page.isClosed()) {
-        await page.bringToFront();
-        await page.screenshot({ path: `/tmp/genius-error-${timestamp}.png` });
-        const html = await page.content();
-        await fs.writeFile(`/tmp/genius-error-${timestamp}.html`, html);
-        console.warn(`📸 Screenshot and HTML saved to /tmp/genius-error-${timestamp}.*`);
-      }
-    } catch (snapErr) {
-      console.warn(`⚠️ Failed to save debug snapshot: ${snapErr.message}`);
+      await page.screenshot({ path: `/tmp/genius-error-${ts}.png` });
+      const html = await page.content();
+      await fs.writeFile(`/tmp/genius-error-${ts}.html`, html);
+      console.warn(`📸 Screenshot and HTML saved to /tmp/genius-error-${ts}.*`);
+    } catch (e) {
+      console.warn('⚠️ Failed to save debug snapshot:', e);
     }
 
     if (retries > 0) {
       console.warn(`🔁 Retrying Genius scrape (${retries} retries left)...`);
-      if (!page.isClosed()) await page.close();
+      await page.close();
       return await scrapeGenius(url, retries - 1);
     }
 
-    throw new Error(`❌ Genius scrape failed for URL ${url}: ${err.message}`);
+    throw new Error(`Genius scrape failed for URL ${url}: ${err.message}`);
   } finally {
-    if (!page.isClosed()) {
-      await page.close();
-    }
+    if (!page.isClosed()) await page.close();
   }
 }

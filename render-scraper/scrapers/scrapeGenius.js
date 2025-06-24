@@ -42,7 +42,7 @@ export async function scrapeGenius(inputUrl, retries = 2) {
     } catch (e) {
       console.log('ℹ️ Cookie consent banner not found or already accepted.');
     }
-    
+
     // Check for "Page Not Found" after handling potential overlays
     const isNotFound = await page.evaluate(() =>
       document.body.innerText.includes("Page not found")

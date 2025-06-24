@@ -1,5 +1,13 @@
 // browserManager.js
-import puppeteer from 'puppeteer';
+
+// 1. Import from 'puppeteer-extra'
+import puppeteer from 'puppeteer-extra';
+
+// 2. Import the Stealth plugin
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+// 3. Apply the stealth plugin. This should be done before launching the browser.
+puppeteer.use(StealthPlugin());
 
 let browserInstance = null;
 
@@ -9,7 +17,8 @@ let browserInstance = null;
 export async function initBrowser() {
   if (browserInstance) return browserInstance;
 
-  console.log('🚀 Initializing a new shared browser instance...');
+  // I've updated the log message to confirm stealth mode is active.
+  console.log('🚀 Initializing a new stealth browser instance...');
   try {
     browserInstance = await puppeteer.launch({
       headless: 'new',

@@ -1,19 +1,88 @@
+// browserManager.js
+
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import BlockResourcesPlugin from 'puppeteer-extra-plugin-adblocker';
+import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
+import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
 
+// 🧠 Configure plugins BEFORE launch
 puppeteer.use(StealthPlugin());
+puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
+puppeteer.use(
+  RecaptchaPlugin({
+    provider: {
+      id: '2captcha',
+      token: process.env.CAPTCHA_API_KEY || 'DUMMY_NO_KEY', // 🛡️ optional, use '' to skip
+    },
+    visualFeedback: true,
+  })
+);
 
-const blockResourcesPlugin = BlockResourcesPlugin({
-  blockedTypes: new Set(['image', 'media', 'font', 'stylesheet', 'xhr']),
-  blockedUrls: [
-    '*.doubleclick.net',
-    '*.googlesyndication.com',
-    '*.google-analytics.com',
-    '*.adnxs.com',
-    '*.adsafeprotected.com',
-    '*.captcha-delivery.com',
-    '*://*.cloudflare.com/cdn-cgi/*'
-  ],
-});
-puppeteer.use(blockResourcesPlugin);
+let browserInstance = null;
+
+/**
+ * Initializes and returns a singleton Puppeteer browser instance.
+ */
+export async function initBrowser() {
+  if (browserInstance) return browserInstance;
+
+  console.log('🚀 Initializing a new stealth browser instance...');
+  try {
+    browserInstance = await puppeteer.launch({
+      headless: 'new', // or true for full headless
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-background-networking',
+        '--disable-extensions',
+        '--no-zygote',
+        '--single-process',
+        '--mute-audio',
+        '--hide-scrollbars',
+      ],
+      defaultViewport: {
+        width: 1280,
+        height: 800,
+      },
+    });
+
+    browserInstance.on('disconnected', async () => {
+      console.warn('👋 Browser disconnected. Attempting to auto-restart...');
+      browserInstance = null;
+      try {
+        await initBrowser();
+        console.log('✅ Browser restarted successfully.');
+      } catch (e) {
+        console.error('❌ Failed to restart browser:', e);
+      }
+    });
+
+    return browserInstance;
+  } catch (err) {
+    console.error('💥 Could not launch Puppeteer:', err);
+    throw err;
+  }
+}
+
+/**
+ * Returns the current browser instance. Throws if not initialized.
+ */
+export function getBrowser() {
+  if (!browserInstance) {
+    throw new Error('❌ Browser not initialized. Call initBrowser() first.');
+  }
+  return browserInstance;
+}
+
+/**
+ * Cleanly closes the browser.
+ */
+export async function closeBrowser() {
+  if (browserInstance) {
+    console.log('🛑 Closing browser instance...');
+    await browserInstance.close();
+    browserInstance = null;
+  }
+}

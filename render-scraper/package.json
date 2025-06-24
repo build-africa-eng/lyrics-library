@@ -30,6 +30,7 @@
     "puppeteer-extra-plugin-adblocker": "^2.13.6",
     "puppeteer-extra-plugin-recaptcha": "^3.6.8",
     "ws": "^8.18.2",
+    "jsdom": "^26.1.0",
     "express-rate-limit": "^7.5.1"
   },
   "devDependencies": {

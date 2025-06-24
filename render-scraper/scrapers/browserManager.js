@@ -1,29 +1,15 @@
+// browserManager.js - Optimized for low resources
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
-import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
-
+// Remove heavy plugins to save memory
 puppeteer.use(StealthPlugin());
-puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
-puppeteer.use(
-  RecaptchaPlugin({
-    provider: {
-      id: '2captcha',
-      token: process.env.CAPTCHA_API_KEY || 'DUMMY_NO_KEY',
-    },
-    visualFeedback: true,
-  })
-);
 
 let browserInstance = null;
 
-/**
- * Initializes and returns a singleton Puppeteer browser instance.
- */
 export async function initBrowser() {
   if (browserInstance) return browserInstance;
-
-  console.log('🚀 Initializing a new stealth browser instance...');
+  console.log('🚀 Initializing minimal browser instance...');
+  
   try {
     browserInstance = await puppeteer.launch({
       headless: 'new',
@@ -34,51 +20,47 @@ export async function initBrowser() {
         '--disable-gpu',
         '--disable-background-networking',
         '--disable-extensions',
+        '--disable-plugins',
+        '--disable-images', // Save bandwidth and memory
+        '--disable-javascript', // We'll enable selectively if needed
         '--no-zygote',
         '--single-process',
         '--mute-audio',
         '--hide-scrollbars',
+        '--memory-pressure-off',
+        '--max_old_space_size=256', // Limit V8 heap
+        '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding',
+        '--disable-backgrounding-occluded-windows',
       ],
       defaultViewport: {
-        width: 1280,
-        height: 800,
+        width: 800,  // Smaller viewport
+        height: 600,
       },
     });
 
     browserInstance.on('disconnected', async () => {
-      console.warn('👋 Browser disconnected. Attempting to auto-restart...');
+      console.warn('👋 Browser disconnected. Cleaning up...');
       browserInstance = null;
-      try {
-        await initBrowser();
-        console.log('✅ Browser restarted successfully.');
-      } catch (e) {
-        console.error('❌ Failed to restart browser:', e);
-      }
     });
 
-    console.log('✅ Browser launched successfully.');
+    console.log('✅ Minimal browser launched successfully.');
     return browserInstance;
   } catch (err) {
-    console.error('💥 Could not launch Puppeteer:', err);
+    console.error('💥 Could not launch browser:', err);
     browserInstance = null;
     throw err;
   }
 }
 
-/**
- * Returns the current browser instance. Re-initializes if needed.
- */
 export async function getBrowser() {
   if (!browserInstance) {
-    console.warn('📭 Browser instance missing. Attempting to (re)initialize...');
+    console.warn('📭 Browser instance missing. Reinitializing...');
     browserInstance = await initBrowser();
   }
   return browserInstance;
 }
 
-/**
- * Cleanly closes the browser.
- */
 export async function closeBrowser() {
   if (browserInstance) {
     console.log('🛑 Closing browser instance...');

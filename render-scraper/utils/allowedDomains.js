@@ -1,5 +1,3 @@
-// utils/allowedDomains.js
-
 const ALLOWED_DOMAINS = [
   'genius.com',
   'www.genius.com',
@@ -10,11 +8,16 @@ const ALLOWED_DOMAINS = [
   'musixmatch.com',
   'www.musixmatch.com',
   'metrolyrics.com',
-  'www.metrolyrics.com'
+  'www.metrolyrics.com',
+  // ✅ Add Google domains for search scraping
+  'google.com',
+  'www.google.com',
+  'support.google.com'
 ];
 
 /**
  * Checks if a URL belongs to an allowed lyrics domain
+ * or allowed search engine domain (e.g. Google).
  * @param {string} url - Full URL to check
  * @returns {boolean}
  */

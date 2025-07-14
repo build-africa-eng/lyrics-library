@@ -1,7 +1,7 @@
 import express from 'express';
 import NodeCache from 'node-cache';
 import { getBrowserPage, checkBrowserHealth } from '../scrapers/browserManager.js';
-import { tryGeniusFallback } from '../scrapers/scrapeGenius.js';
+import { scrapeGenius, tryGeniusFallback } from '../scrapers/scrapeGenius.js';
 import { scrapeAZLyrics } from '../scrapers/scrapeAZLyrics.js';
 import { scrapeLyricsCom } from '../scrapers/scrapeLyricsCom.js';
 import { scrapeMusixmatch } from '../scrapers/scrapeMusixmatch.js';

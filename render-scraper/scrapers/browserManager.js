@@ -1,4 +1,4 @@
-// browserManager.js - Fixed version with better error handling
+// browserManager.js - Final optimized version
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
@@ -7,11 +7,10 @@ puppeteer.use(StealthPlugin());
 let browserInstance = null;
 let isInitializing = false;
 
+// --- Initialize Browser ---
 export async function initBrowser() {
-  // Prevent multiple simultaneous initializations
   if (isInitializing) {
-    console.log('⏳ Browser initialization already in progress...');
-    // Wait for current initialization to complete
+    console.log('⏳ Browser initialization in progress...');
     while (isInitializing) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -19,7 +18,7 @@ export async function initBrowser() {
   }
 
   if (browserInstance && !browserInstance.isConnected()) {
-    console.warn('🔌 Browser disconnected, resetting instance...');
+    console.warn('🔌 Disconnected browser found. Resetting...');
     browserInstance = null;
   }
 
@@ -29,8 +28,8 @@ export async function initBrowser() {
   }
 
   isInitializing = true;
-  console.log('🚀 Initializing new browser instance...');
-  
+  console.log('🚀 Launching browser...');
+
   try {
     browserInstance = await puppeteer.launch({
       headless: 'new',
@@ -39,19 +38,18 @@ export async function initBrowser() {
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--disable-background-networking',
         '--disable-extensions',
-        '--disable-plugins',
+        '--disable-background-networking',
+        '--disable-default-apps',
         '--disable-images',
-        '--no-zygote',
-        '--single-process',
+        '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding',
         '--mute-audio',
+        '--single-process',
+        '--no-zygote',
         '--hide-scrollbars',
         '--memory-pressure-off',
         '--max_old_space_size=256',
-        '--disable-background-timer-throttling',
-        '--disable-renderer-backgrounding',
-        '--disable-backgrounding-occluded-windows',
       ],
       defaultViewport: {
         width: 800,
@@ -59,22 +57,16 @@ export async function initBrowser() {
       },
     });
 
-    // Set up disconnect handler
     browserInstance.on('disconnected', () => {
-      console.warn('👋 Browser disconnected unexpectedly');
+      console.warn('👋 Browser disconnected');
       browserInstance = null;
     });
 
-    // Verify the browser instance is valid
-    if (!browserInstance || typeof browserInstance.newPage !== 'function') {
-      throw new Error('Browser instance is invalid - newPage method not available');
-    }
-
-    console.log('✅ Browser launched successfully');
+    console.log('✅ Browser launched');
     return browserInstance;
 
   } catch (err) {
-    console.error('💥 Failed to launch browser:', err.message);
+    console.error('💥 Browser launch failed:', err.message);
     browserInstance = null;
     throw new Error(`Browser initialization failed: ${err.message}`);
   } finally {
@@ -82,28 +74,26 @@ export async function initBrowser() {
   }
 }
 
+// --- Get Browser Instance ---
 export async function getBrowser() {
-  // Always validate the browser instance before returning
   if (!browserInstance || !browserInstance.isConnected()) {
-    console.log('🔄 Browser needs (re)initialization...');
+    console.log('🔄 (Re)initializing browser...');
     await initBrowser();
   }
 
-  // Double-check the instance is valid
   if (!browserInstance || typeof browserInstance.newPage !== 'function') {
-    throw new Error('Browser instance is invalid after initialization');
+    throw new Error('Invalid browser instance');
   }
 
   return browserInstance;
 }
 
+// --- Get New Page with Interception ---
 export async function getBrowserPage() {
   const browser = await getBrowser();
-  
   try {
     const page = await browser.newPage();
-    
-    // Set up basic page configuration
+
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const resourceType = req.resourceType();
@@ -114,166 +104,50 @@ export async function getBrowserPage() {
       }
     });
 
-    await page.setUserAgent('Mozilla/5.0 (compatible; ScraperBot/1.0)');
-    
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+      'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+      'Chrome/115.0.0.0 Safari/537.36'
+    );
+
     return page;
   } catch (err) {
-    console.error('❌ Failed to create new page:', err.message);
-    // Reset browser instance if page creation fails
+    console.error('❌ Failed to open new page:', err.message);
     browserInstance = null;
     throw new Error(`Page creation failed: ${err.message}`);
   }
 }
 
+// --- Close Browser Instance ---
 export async function closeBrowser() {
   if (browserInstance) {
     try {
-      console.log('🛑 Closing browser instance...');
+      console.log('🛑 Closing browser...');
       await browserInstance.close();
     } catch (err) {
-      console.warn('⚠️ Error closing browser:', err.message);
+      console.warn('⚠️ Browser close error:', err.message);
     } finally {
       browserInstance = null;
     }
   }
 }
 
-// Utility function to check browser health
+// --- Health Check Utility ---
 export async function checkBrowserHealth() {
   if (!browserInstance) {
     return { healthy: false, reason: 'No browser instance' };
   }
-
   if (!browserInstance.isConnected()) {
     return { healthy: false, reason: 'Browser disconnected' };
   }
-
   if (typeof browserInstance.newPage !== 'function') {
-    return { healthy: false, reason: 'Invalid browser instance' };
+    return { healthy: false, reason: 'Invalid browser API' };
   }
 
   try {
-    // Try to get browser version as a health check
     const version = await browserInstance.version();
     return { healthy: true, version };
   } catch (err) {
     return { healthy: false, reason: `Health check failed: ${err.message}` };
-  }
-}
-
-// Fixed scrape function using the new page helper
-export async function scrapeGenius(inputUrl, retries = 1) {
-  const url = inputUrl; // Assuming sanitizeUrl is handled elsewhere
-  let page = null;
-
-  try {
-    console.log(`🎵 Scraping Genius: ${url}`);
-    
-    // Use the new helper function
-    page = await getBrowserPage();
-    
-    await page.goto(url, {
-      waitUntil: 'domcontentloaded',
-      timeout: 30000,
-    });
-
-    // Quick CAPTCHA check
-    const isChallenge = await page.evaluate(() => 
-      document.body.innerText.includes("Verifying you are human") ||
-      document.title.includes("Just a moment") ||
-      document.querySelector('iframe[src*="captcha"]')
-    );
-    
-    if (isChallenge) {
-      throw new Error("CAPTCHA detected - cannot proceed");
-    }
-
-    // Cookie consent
-    try {
-      await page.click('button[id="onetrust-accept-btn-handler"]', { timeout: 3000 });
-      console.log('✅ Cookie consent accepted');
-    } catch {
-      console.log('ℹ️ No cookie banner found');
-    }
-
-    // Check for 404
-    const isNotFound = await page.evaluate(() =>
-      document.body.innerText.includes("Page not found")
-    );
-    if (isNotFound) throw new Error("Page not found");
-
-    // Find lyrics
-    const selectors = [
-      'div[data-lyrics-container="true"]',
-      '[class*="Lyrics__Container"]',
-      'div.lyrics'
-    ];
-
-    let data = null;
-    for (const selector of selectors) {
-      try {
-        await page.waitForSelector(selector, { timeout: 10000 });
-        
-        data = await page.evaluate((sel) => {
-          const container = document.querySelector(sel);
-          if (!container) return null;
-
-          const lyrics = container.innerText.trim();
-          const titleEl = document.querySelector('h1[class*="Title"], h1');
-          const artistEl = document.querySelector('a[class*="Artist"]');
-          
-          let title = titleEl?.innerText?.trim();
-          let artist = artistEl?.innerText?.trim();
-
-          // Fallback to page title parsing
-          if (!title || !artist) {
-            const pageTitle = document.title || '';
-            const match = pageTitle.match(/^(.+?)\s+(?:by|–)\s+(.+?)\s+(?:–|Lyrics)/);
-            if (match) {
-              title = title || match[1]?.trim();
-              artist = artist || match[2]?.trim();
-            }
-          }
-
-          return { 
-            title: title || 'Unknown', 
-            artist: artist || 'Unknown', 
-            lyrics, 
-            source: 'genius', 
-            source_url: location.href 
-          };
-        }, selector);
-
-        if (data?.lyrics) break;
-      } catch {
-        continue;
-      }
-    }
-
-    if (!data?.lyrics) {
-      throw new Error("No lyrics found");
-    }
-
-    console.log(`✅ Successfully scraped: ${data.title} by ${data.artist}`);
-    return data;
-
-  } catch (err) {
-    console.error(`❌ Genius scrape error: ${err.message}`);
-    
-    if (retries > 0 && !err.message.includes('CAPTCHA')) {
-      console.warn(`🔁 Retrying... (${retries} left)`);
-      if (page) await page.close();
-      return scrapeGenius(url, retries - 1);
-    }
-    
-    throw new Error(`Genius scrape failed: ${err.message}`);
-  } finally {
-    if (page) {
-      try {
-        await page.close();
-      } catch (err) {
-        console.warn('⚠️ Error closing page:', err.message);
-      }
-    }
   }
 }

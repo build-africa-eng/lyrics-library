@@ -1,5 +1,4 @@
-// routes/scrape.js
-import express from 'express';
+limport express from 'express';
 import NodeCache from 'node-cache';
 import { getBrowserPage, checkBrowserHealth } from '../scrapers/browserManager.js';
 import { tryGeniusFallback } from '../scrapers/scrapeGenius.js';
@@ -127,8 +126,27 @@ const handleScrapeRequest = async (req, res) => {
 
     console.log(`✅ Scraped: ${result.title} by ${result.artist}`);
     return res.json(result);
+
   } catch (err) {
     console.error(`❌ Failed: ${cacheKey}: ${err.message}`);
+
+    // 🧠 Genius API fallback
+    if (query) {
+      try {
+        const fallback = await tryGeniusFallback(query);
+        if (fallback) {
+          fallback.timestamp = new Date().toISOString();
+          fallback.scraped_via = 'genius-api';
+          fallback.cached = false;
+          lyricsCache.set(cacheKey, fallback);
+
+          console.log(`✅ Fallback via Genius API: ${fallback.title} by ${fallback.artist}`);
+          return res.json(fallback);
+        }
+      } catch (apiErr) {
+        console.warn('⚠️ Genius API fallback also failed:', apiErr.message);
+      }
+    }
 
     const errorResponse = {
       error: 'Scrape failed',

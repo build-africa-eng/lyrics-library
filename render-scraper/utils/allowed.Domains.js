@@ -6,7 +6,11 @@ const ALLOWED_DOMAINS = [
   'azlyrics.com',
   'www.azlyrics.com',
   'lyrics.com',
-  'www.lyrics.com'
+  'www.lyrics.com',
+  'musixmatch.com',
+  'www.musixmatch.com',
+  'metrolyrics.com',
+  'www.metrolyrics.com'
 ];
 
 /**

@@ -19,3 +19,5 @@ async function tryGeniusFallback(query) {
     return null;
   }
 }
+
+export { tryGeniusFallback };
